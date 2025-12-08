@@ -325,6 +325,16 @@
         font-size: 13px;
         color: var(--text);
       }
+      .error-bar {
+        display: none;
+        margin: 0 0 12px 0;
+        padding: 12px 14px;
+        border-radius: var(--r-sm);
+        background: rgba(255, 107, 107, 0.12);
+        border: 1px solid rgba(255, 107, 107, 0.4);
+        color: #ffdcdc;
+        font-weight: 600;
+      }
       .pill:hover {
         border-color: rgba(255,255,255,0.12);
         background: rgba(255,255,255,0.05);
@@ -443,6 +453,7 @@
           <span class="brand-name">Flashbots</span>
         </div>
       </div>
+      <div id="errorBar" class="error-bar" role="alert"></div>
       <header class="card hero-panel">
         <div class="hero-head">
           <h1 class="hero-title">Spam Game</h1>

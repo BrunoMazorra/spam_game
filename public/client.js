@@ -47,6 +47,7 @@ const $costLabel2 = document.getElementById('costLabel2');
 const $readyLabel = document.getElementById('readyLabel');
 const $myEmojiBadge = document.getElementById('myEmojiBadge');
 const $setNameBtn = document.getElementById('setNameBtn');
+const $errorBar = document.getElementById('errorBar');
 
 const $board = document.getElementById('board');
 const $countdownLabel = document.getElementById('countdownLabel');
@@ -79,6 +80,17 @@ let roundInfo = { current: 0, total: 0 };
 let isHost = false;
 let inviteUrl = '';
 let lastReadyCounts = { ready: 0, total: 0 };
+
+function setError(message) {
+  if (!$errorBar) return;
+  if (!message) {
+    $errorBar.style.display = 'none';
+    $errorBar.textContent = '';
+    return;
+  }
+  $errorBar.textContent = message;
+  $errorBar.style.display = 'block';
+}
 
 socket.on('connect', () => {
   myId = socket.id;
@@ -316,9 +328,11 @@ function submitPoints() {
   socket.emit('submit_points', { roomId: submitRoomId, points: myPoints }, (res) => {
     if (!res?.ok) {
       console.error('Submit failed:', res?.error);
+      setError(res?.error || 'Submit failed');
       hasSubmitted = false; // Allow retry if submission failed
     } else {
       console.log('Points submitted successfully to room:', submitRoomId);
+      setError('');
     }
   });
 }
@@ -356,10 +370,12 @@ function setCountdown() {
       socket.emit('submit_points', { roomId: submitRoomId, points: pointsToSubmit }, (res) => {
         if (!res?.ok) {
           console.error('Submit failed:', res?.error);
+          setError(res?.error || 'Submit failed');
           hasSubmitted = false; // Allow retry if submission failed
           submittedThisRound = false;
         } else {
           console.log('Points submitted successfully to room:', submitRoomId, 'points:', pointsToSubmit);
+          setError('');
         }
       });
     }
@@ -371,9 +387,10 @@ function joinRoomById(rid, { silent = false } = {}) {
   isHost = false;
   socket.emit('join_room', { roomId: targetId, name: myName }, (res) => {
     if (!res?.ok) {
-      if (!silent) alert(res?.error || 'Failed to join');
+      if (!silent) setError(res?.error || 'Failed to join');
       return;
     }
+    setError('');
     const joinedId = res.roomId || targetId;
     setRoomContext(joinedId, res.settings);
     show('lobby');
@@ -389,7 +406,8 @@ $createBtn?.addEventListener('click', () => {
   const costPerPoint = parseFloat($costInput.value || '0.05');
   const durationSec = parseInt($durInput.value || '10', 10);
   socket.emit('create_room', { name: myName, costPerPoint, durationSec }, (res) => {
-    if (!res?.ok) { alert(res?.error || 'Failed to create'); return; }
+    if (!res?.ok) { setError(res?.error || 'Failed to create room'); return; }
+    setError('');
     isHost = true;
     setRoomContext(res.roomId, res.settings);
     if ($shareRow) $shareRow.style.display = 'flex';
@@ -410,9 +428,10 @@ $setNameBtn?.addEventListener('click', () => {
   const desiredName = ($myNameLobbyInput?.value || '').trim() || 'Player';
   socket.emit('set_name', { roomId, name: desiredName }, (res) => {
     if (!res?.ok) {
-      alert(res?.error || 'Failed to update name');
+      setError(res?.error || 'Failed to update name');
       return;
     }
+    setError('');
     myName = res.name;
     myEmoji = res.emoji || myEmoji;
     if ($myNameLobbyInput) $myNameLobbyInput.value = res.name;
@@ -451,18 +470,22 @@ $startBtn.addEventListener('click', () => {
     $startBtn.textContent = 'Starting...';
     socket.emit('start_game', { roomId }, (res) => {
       if (res && !res.ok) {
-        alert(res.error || 'Cannot start');
+        setError(res.error || 'Cannot start');
         $startBtn.disabled = false;
         $startBtn.textContent = 'Ready / Start';
+      } else {
+        setError('');
       }
     });
   } else {
     $startBtn.textContent = 'Ready ✓';
     socket.emit('ready_to_start', { roomId }, (res) => {
       if (res && !res.ok) {
-        alert(res.error || 'Cannot ready up');
+        setError(res.error || 'Cannot ready up');
         $startBtn.disabled = false;
         $startBtn.textContent = 'Ready / Start';
+      } else {
+        setError('');
       }
     });
   }
@@ -481,10 +504,12 @@ $nextRoundBtn.addEventListener('click', () => {
   $readyStatus.textContent = 'Waiting for others...';
   socket.emit('ready_next', { roomId }, (res) => {
     if (!res?.ok) {
-      alert(res?.error || 'Failed to ready up');
+      setError(res?.error || 'Failed to ready up');
       $nextRoundBtn.disabled = false;
       $nextRoundBtn.textContent = 'Next Round';
       $readyStatus.textContent = '';
+    } else {
+      setError('');
     }
   });
 });
@@ -546,6 +571,7 @@ function flashCost(clientX, clientY) {
 
 // Socket listeners
 socket.on('lobby', ({ roomId: rid, players, settings: s, status }) => {
+  setError('');
   setRoomContext(rid, s);
   $players.innerHTML = '';
   for (const p of players) {
@@ -618,6 +644,7 @@ socket.on('game_started', ({ startedAt, revealAt, settings: s, currentRound, tot
     play: $play.style.display,
     results: $results.style.display
   });
+  setError('');
   settings = s;
   gameTimes = { startedAt, revealAt };
   $costLabel2.textContent = settings.costPerPoint;
@@ -645,6 +672,7 @@ socket.on('game_started', ({ startedAt, revealAt, settings: s, currentRound, tot
 
 socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds, totals }) => {
   console.log('Results received:', { results, winner, currentRound, totalRounds, totals });
+  setError('');
   settings = s;
   if (countdownTimer) {
     clearInterval(countdownTimer);

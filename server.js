@@ -68,6 +68,7 @@ function createAppServer() {
       ensureHostPlayer(room);
       if (room.status !== 'lobby') return cb?.({ ok: false, error: 'Not in lobby' });
       if (!room.players.has(socket.id)) return cb?.({ ok: false, error: 'Not in room' });
+      if (room.players.size < 2) return cb?.({ ok: false, error: 'Need at least 2 players to ready' });
       if (!room.readyToStart) room.readyToStart = new Set();
       room.readyToStart.add(socket.id);
       const payload = { readyCount: room.readyToStart.size, totalPlayers: room.players.size };
@@ -84,7 +85,7 @@ function createAppServer() {
       if (!room) return cb?.({ ok: false, error: 'Room not found' });
       if (room.hostSocketId !== socket.id) return cb?.({ ok: false, error: 'Only host can start' });
       if (room.status === 'running' || room.status === 'countdown') return cb?.({ ok: false, error: 'Game already running or counting down' });
-      if (room.players.size < 1) return cb?.({ ok: false, error: 'Need at least 1 player' });
+      if (room.players.size < 2) return cb?.({ ok: false, error: 'Need at least 2 players' });
       if (room.status === 'revealed' || room.status === 'finished') {
         roomStore.resetRoomToLobby(room);
         lifecycle.emitLobby(room.id);
