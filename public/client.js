@@ -101,13 +101,14 @@ let winnerEmojiTimer = null;
 let publicRoomsLoading = false;
 let clickAudioCtx = null;
 let clickAudioBus = null;
+let lastWinJingleAt = 0;
 // Short slot-machine style chirp for point drops
 function ensureClickAudio() {
   try {
     if (!clickAudioCtx) {
       clickAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
       clickAudioBus = clickAudioCtx.createGain();
-      clickAudioBus.gain.value = 0.35;
+      clickAudioBus.gain.value = 0.6; // bumped for audibility
       clickAudioBus.connect(clickAudioCtx.destination);
     } else if (clickAudioCtx.state === 'suspended') {
       clickAudioCtx.resume();
@@ -129,7 +130,7 @@ function playSlotClickSound() {
   tone.type = 'sawtooth';
   tone.frequency.setValueAtTime(900, now);
   tone.frequency.exponentialRampToValueAtTime(480, now + 0.25);
-  toneGain.gain.setValueAtTime(0.14, now);
+  toneGain.gain.setValueAtTime(0.2, now);
   toneGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
 
   const noise = ctx.createBufferSource();
@@ -153,6 +154,71 @@ function playSlotClickSound() {
   tone.stop(now + 0.35);
   noise.start(now);
   noise.stop(now + 0.2);
+}
+
+function playWinnerJingle() {
+  const ctx = ensureClickAudio();
+  if (!ctx || !clickAudioBus) return;
+  const now = ctx.currentTime;
+  // throttle to avoid double-play on rapid events
+  if (now - lastWinJingleAt < 2.5) return;
+  lastWinJingleAt = now;
+
+  const melody = [
+    { t: 0.0, freq: 587 },   // D5
+    { t: 0.12, freq: 784 },  // G5
+    { t: 0.24, freq: 880 },  // A5
+    { t: 0.36, freq: 1175 }, // D6
+    { t: 0.60, freq: 1047 }, // C6
+    { t: 0.76, freq: 784 },  // G5
+    { t: 0.92, freq: 1319 }, // E6
+    { t: 1.10, freq: 1175 }, // D6
+    { t: 1.26, freq: 1568 }, // G6
+    { t: 1.42, freq: 1760 }  // A6
+  ];
+
+  const pad = ctx.createGain();
+  pad.gain.setValueAtTime(0.4, now);
+  pad.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
+  pad.connect(clickAudioBus);
+
+  // Warm pad under the melody
+  const padOsc = ctx.createOscillator();
+  padOsc.type = 'triangle';
+  padOsc.frequency.setValueAtTime(196, now); // G3
+  padOsc.connect(pad);
+  padOsc.start(now);
+  padOsc.stop(now + 2.2);
+
+  for (const note of melody) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(note.freq, now + note.t);
+    gain.gain.setValueAtTime(0.38, now + note.t);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + note.t + 0.26);
+    osc.connect(gain);
+    gain.connect(clickAudioBus);
+    osc.start(now + note.t);
+    osc.stop(now + note.t + 0.3);
+  }
+
+  // Simple noise burst for sparkle
+  const noise = ctx.createBufferSource();
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.25, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    const t = i / data.length;
+    data[i] = (Math.random() * 2 - 1) * (1 - t);
+  }
+  noise.buffer = buffer;
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.12, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+  noise.connect(noiseGain);
+  noiseGain.connect(clickAudioBus);
+  noise.start(now);
+  noise.stop(now + 0.5);
 }
 
 // Final celebration overlay elements (injected at runtime)
@@ -920,6 +986,9 @@ socket.on('match_finished', ({ totals, totalRounds, winner }) => {
   if ($winnerLabel && winner) {
     $winnerLabel.textContent = `Champion: ${displayName(winner.name, winner.emoji)} • total payoff ${winner.totalPayoff.toFixed(4)}`;
     showPartyEmoji($winnerLabel);
+  }
+  if (winner) {
+    playWinnerJingle();
   }
   renderFinalCelebration({ totals, totalRounds, winner });
 });
