@@ -17,6 +17,10 @@ function createAppServer() {
   const server = http.createServer(app);
   const io = new Server(server, { cors: { origin: '*' } });
   const lifecycle = new GameLifecycle(io);
+  const log = (...args) => {
+    // eslint-disable-next-line no-console
+    console.log('[socket]', ...args);
+  };
 
   app.use(express.static('public'));
   app.get(['/room/:roomId', '/room/:roomId/*'], (_req, res) => {
@@ -24,8 +28,15 @@ function createAppServer() {
   });
 
   io.on('connection', (socket) => {
+    log('connect', { socketId: socket.id });
     socket.on('create_room', ({ name, costPerPoint, durationSec, totalRounds, preferredId }, cb) => {
+      if (roomStore.hasInProgressGame()) {
+        return cb?.({ ok: false, error: 'A game is already in progress. Please wait for it to finish.' });
+      }
       const room = roomStore.createRoom({ hostSocketId: socket.id, hostName: name, costPerPoint, durationSec, totalRounds, preferredId });
+      if (!room) {
+        return cb?.({ ok: false, error: 'Unable to create room (ID collision or game in progress).' });
+      }
       socket.join(room.id);
       cb?.({ ok: true, roomId: room.id, settings: room.settings });
       lifecycle.emitLobby(room.id);
@@ -36,7 +47,7 @@ function createAppServer() {
       const room = requestedRoomId ? roomStore.get(requestedRoomId) : roomStore.getOrCreateDevRoom();
       if (!room) return cb?.({ ok: false, error: 'Room not found' });
       ensureHostPlayer(room);
-      if (room.status !== 'lobby') return cb?.({ ok: false, error: 'Game already started' });
+      if (room.status !== 'lobby') return cb?.({ ok: false, error: 'Game already started or in progress' });
       if (!room.players.has(socket.id)) {
         ensurePlayerRecord(room, socket.id, { name: sanitizeName(name, 'Player'), socketId: socket.id });
       }
@@ -57,6 +68,7 @@ function createAppServer() {
       if (!room.readyToStart) room.readyToStart = new Set();
       room.readyToStart.add(socket.id);
       const payload = { readyCount: room.readyToStart.size, totalPlayers: room.players.size };
+      log('ready_to_start', { roomId, socketId: socket.id, payload, status: room.status });
       cb?.({ ok: true, ...payload });
       io.to(room.id).emit('ready_to_start_status', payload);
       if (room.readyToStart.size >= room.players.size) {
@@ -68,18 +80,26 @@ function createAppServer() {
       const room = roomStore.get(roomId);
       if (!room) return cb?.({ ok: false, error: 'Room not found' });
       if (room.hostSocketId !== socket.id) return cb?.({ ok: false, error: 'Only host can start' });
-      if (room.status === 'running') return cb?.({ ok: false, error: 'Game already running' });
+      if (room.status === 'running' || room.status === 'countdown') return cb?.({ ok: false, error: 'Game already running or counting down' });
       if (room.players.size < 1) return cb?.({ ok: false, error: 'Need at least 1 player' });
       if (room.status === 'revealed' || room.status === 'finished') {
         roomStore.resetRoomToLobby(room);
         lifecycle.emitLobby(room.id);
       }
+      log('start_game', { roomId, host: socket.id, players: room.players.size, status: room.status });
       lifecycle.startRound(room.id);
       cb?.({ ok: true });
     });
 
     socket.on('submit_points', ({ roomId, points }, cb) => {
       const res = lifecycle.recordSubmission(roomId, socket.id, points);
+      log('submit_points', {
+        roomId,
+        socketId: socket.id,
+        ok: res?.ok,
+        error: res?.error,
+        points: Array.isArray(points) ? points.length : 0
+      });
       cb?.(res);
       if (res.ok) {
         io.to(socket.id).emit('submitted', { roomId, points: res.points });
