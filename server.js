@@ -31,6 +31,7 @@ function createAppServer() {
   io.on('connection', (socket) => {
     log('connect', { socketId: socket.id });
     socket.on('create_room', ({ name, costPerPoint, durationSec, totalRounds, preferredId }, cb) => {
+      log('create_room', { socketId: socket.id, preferredId, costPerPoint, durationSec, totalRounds });
       if (roomStore.hasInProgressGame()) {
         return cb?.({ ok: false, error: 'A game is already in progress. Please wait for it to finish.' });
       }
@@ -53,6 +54,7 @@ function createAppServer() {
         ensurePlayerRecord(room, socket.id, { name: sanitizeName(name, 'Player'), socketId: socket.id });
       }
       socket.join(room.id);
+      log('join_room', { socketId: socket.id, roomId: room.id, status: room.status, players: room.players.size });
       cb?.({ ok: true, roomId: room.id, settings: room.settings });
       lifecycle.emitLobby(room.id);
       if (room.readyToStart?.size > 0) {
@@ -124,12 +126,14 @@ function createAppServer() {
     socket.on('leave_room', ({ roomId }) => {
       const room = roomStore.get(roomId);
       if (!room) return;
+      log('leave_room', { socketId: socket.id, roomId });
       roomStore.prunePlayer(room, socket.id);
       socket.leave(room.id);
       lifecycle.emitLobby(room.id);
     });
 
     socket.on('disconnect', () => {
+      log('disconnect', { socketId: socket.id });
       for (const room of roomStore.rooms.values()) {
         if (room.players.has(socket.id)) {
           if (room.status === 'running') {
