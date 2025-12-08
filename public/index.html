@@ -268,12 +268,13 @@
         box-shadow: 0 0 0 4px rgba(0,255,154,0.12);
       }
       label { color: var(--muted); font-size: 13px; font-weight: 600; }
-      button { cursor: pointer; touch-action: manipulation; font-weight: 600; letter-spacing: 0.01em; transition: transform 140ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease; }
+      button { cursor: pointer; touch-action: manipulation; font-weight: 600; letter-spacing: 0.01em; transition: transform 140ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease, filter 140ms ease; }
       button.primary {
         background: linear-gradient(120deg, var(--accent), var(--accent-2));
         color: #160b0b;
         border: none;
         box-shadow: 0 12px 38px rgba(255, 75, 75, 0.3);
+        background-size: 140% 140%;
       }
       button.ghost {
         background: rgba(255,255,255,0.03);
@@ -283,8 +284,13 @@
       button.nav-pill { border-radius: 999px; padding: 12px 18px; }
       .nav-pill.is-active { box-shadow: var(--glow); border-color: var(--accent); }
       button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 14px 42px rgba(255, 75, 75, 0.34);
+        transform: translateY(-2px) scale(1.01);
+        box-shadow: 0 16px 48px rgba(255, 75, 75, 0.36);
+        filter: saturate(1.05);
+      }
+      button.primary:hover {
+        background-position: 80% 20%;
+        box-shadow: 0 18px 52px rgba(255, 75, 75, 0.4);
       }
       button.ghost:hover {
         border-color: rgba(255,255,255,0.16);
@@ -450,7 +456,10 @@
         <div id="host" class="view">
           <div class="section">
             <div class="stack">
-              <input id="nameInput" placeholder="Your name (host)" />
+              <div class="stack">
+                <label class="muted" for="nameInput">Your name (shown to players)</label>
+                <input id="nameInput" placeholder="e.g., Host Alpha" />
+              </div>
               <div class="row">
                 <div class="grow stack">
                   <div class="muted">Create room</div>
@@ -474,7 +483,10 @@
           <div class="section">
             <div class="stack">
               <div class="row">
-                <input id="nameInputJoin" placeholder="Your name" />
+                <div class="grow stack">
+                  <label class="muted" for="nameInputJoin">Your name (shown to players)</label>
+                  <input id="nameInputJoin" placeholder="e.g., Player Beta" />
+                </div>
               </div>
               <div class="row">
                 <div class="grow">
