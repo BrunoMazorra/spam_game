@@ -1,9 +1,18 @@
 /* global io */
 
-// Allow overriding socket origin for deployments where the static site and
-// Socket.IO server are on different hosts (e.g., Vercel static + separate Node).
-// Set window.SOCKET_URL = 'https://your-socket-host' before loading this script.
-const SOCKET_URL = window.SOCKET_URL || window.__SOCKET_URL__ || undefined;
+// Resolve the Socket.IO backend. Prefer explicit values; default to same origin (Render).
+function resolveSocketUrl() {
+  if (typeof window === 'undefined') return undefined;
+  if (window.__SOCKET_URL__) return window.__SOCKET_URL__;
+  if (window.SOCKET_URL) return window.SOCKET_URL;
+  // Same-origin (Render) by default.
+  return undefined;
+}
+
+const SOCKET_URL = resolveSocketUrl();
+if (SOCKET_URL) {
+  console.log('Using socket host:', SOCKET_URL);
+}
 const socket = io(SOCKET_URL, {
   transports: ['websocket', 'polling']
 });
