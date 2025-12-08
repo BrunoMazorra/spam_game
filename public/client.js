@@ -264,6 +264,9 @@ function updateMyPointsUI() {
 }
 
 let hasSubmitted = false;
+let costFlashEl = null;
+let costFlashTimer = null;
+let costFlashCount = 0;
 
 function submitPoints() {
   // Submit points function - used by both auto-submit and manual submit
@@ -459,24 +462,32 @@ $board.addEventListener('click', (e) => {
 });
 
 function flashCost(clientX, clientY) {
-  const el = document.createElement('div');
-  el.className = 'cost-flash';
-  el.textContent = '-$1';
-  el.style.left = `${clientX}px`;
-  el.style.top = `${clientY}px`;
-  el.style.transform = 'translate(-50%, -50%) translateY(0px)';
-  document.body.appendChild(el);
+  if (!costFlashEl) {
+    costFlashEl = document.createElement('div');
+    costFlashEl.className = 'cost-flash';
+    document.body.appendChild(costFlashEl);
+  }
+  costFlashCount += 1;
+  costFlashEl.textContent = `-$0.01${costFlashCount > 1 ? ` x${costFlashCount}` : ''}`;
+  costFlashEl.style.left = `${clientX}px`;
+  costFlashEl.style.top = `${clientY}px`;
+  costFlashEl.style.transform = 'translate(-50%, -50%) translateY(0px)';
+  costFlashEl.style.opacity = '0';
   requestAnimationFrame(() => {
-    el.style.opacity = '1';
-    el.style.transform = 'translate(-50%, -50%) translateY(-8px)';
+    costFlashEl.style.opacity = '1';
+    costFlashEl.style.transform = 'translate(-50%, -50%) translateY(-8px)';
   });
-  setTimeout(() => {
-    el.style.opacity = '0';
-    el.style.transform = 'translate(-50%, -50%) translateY(-16px)';
+  if (costFlashTimer) clearTimeout(costFlashTimer);
+  costFlashTimer = setTimeout(() => {
+    if (!costFlashEl) return;
+    costFlashEl.style.opacity = '0';
+    costFlashEl.style.transform = 'translate(-50%, -50%) translateY(-16px)';
     setTimeout(() => {
-      el.remove();
-    }, 180);
-  }, 250);
+      costFlashCount = 0;
+      costFlashEl?.remove();
+      costFlashEl = null;
+    }, 200);
+  }, 400);
 }
 
 // Socket listeners
