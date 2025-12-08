@@ -6,58 +6,272 @@
     <title>Spam Game</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
-      :root { --bg: #0b0e14; --panel: #131721; --text: #e6e6e6; --muted:#9aa4b2; --primary:#4f46e5; --green:#22c55e; --red:#ef4444; }
+      :root {
+        --bg: #05090f;
+        --panel: rgba(12, 17, 26, 0.9);
+        --panel-2: rgba(15, 23, 36, 0.9);
+        --text: #e9eef5;
+        --muted: #9fb3c8;
+        --heading: #f6f9ff;
+        --accent: #00ff9a;
+        --accent-2: #24d0ff;
+        --border: rgba(255, 255, 255, 0.08);
+        --glow: 0 12px 50px rgba(0, 255, 154, 0.25);
+        --shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+        --danger: #ef4444;
+      }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      body { margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: var(--text); min-height: 100vh; }
-      .wrap { max-width: 1000px; margin: 0 auto; padding: 16px; }
-      .card { background: var(--panel); border: 1px solid #222630; border-radius: 12px; padding: 16px; }
-      h1 { margin: 0 0 12px 0; font-size: 24px; }
-      .row { display:flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-      input, button, select { border-radius: 8px; border: 1px solid #2a2f3a; background: #0f1320; color: var(--text); padding: 12px 16px; font-size: 16px; min-height: 44px; -webkit-appearance: none; }
-      button { cursor: pointer; touch-action: manipulation; }
-      button.primary { background: var(--primary); border-color: var(--primary); }
+      body {
+        margin: 0;
+        font-family: 'Inter', 'Space Grotesk', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+        background: radial-gradient(100% 140% at 20% 20%, rgba(0, 255, 154, 0.08), transparent 45%),
+                    radial-gradient(100% 140% at 80% 0%, rgba(36, 208, 255, 0.08), transparent 40%),
+                    #05090f;
+        color: var(--text);
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+      }
+      .bg-grid {
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px);
+        background-size: 40px 40px;
+        mask-image: radial-gradient(ellipse at 50% 20%, rgba(0,0,0,0.6), transparent 70%);
+        pointer-events: none;
+        z-index: 0;
+      }
+      .bg-glow {
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(50% 50% at 50% 10%, rgba(0, 255, 154, 0.12), transparent 60%);
+        pointer-events: none;
+        z-index: 0;
+        filter: blur(40px);
+      }
+      .wrap {
+        position: relative;
+        z-index: 1;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 24px 64px;
+      }
+      .card {
+        background: linear-gradient(140deg, var(--panel), var(--panel-2));
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+      }
+      .hero-panel {
+        margin-bottom: 16px;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero-panel::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(120deg, rgba(0,255,154,0.12), rgba(36,208,255,0.08));
+        opacity: 0.6;
+        pointer-events: none;
+      }
+      .hero-head {
+        position: relative;
+        z-index: 1;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--accent);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .eyebrow::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 12px rgba(0,255,154,0.9);
+      }
+      h1 {
+        margin: 10px 0 6px 0;
+        font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
+        font-weight: 700;
+        font-size: 34px;
+        letter-spacing: -0.5px;
+        color: var(--heading);
+      }
+      .lede {
+        margin: 0 0 16px 0;
+        color: var(--muted);
+        max-width: 640px;
+        line-height: 1.55;
+      }
+      .hero-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .hero-meta {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border);
+        font-size: 13px;
+        color: var(--text);
+      }
+      .chip.live::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--accent);
+        box-shadow: 0 0 10px rgba(0,255,154,0.9);
+      }
+      .stat {
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.02);
+      }
+      .stat span { color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+      .stat strong { display: block; color: var(--heading); font-weight: 600; margin-top: 4px; }
+      .surface {
+        position: relative;
+        overflow: hidden;
+      }
+      .surface::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(circle at 20% 10%, rgba(0,255,154,0.07), transparent 35%),
+                    radial-gradient(circle at 80% 0%, rgba(36,208,255,0.08), transparent 35%);
+        opacity: 0.7;
+      }
+      .surface > * { position: relative; z-index: 1; }
+      .nav-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.02);
+      }
+      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .stack { display: flex; flex-direction: column; gap: 8px; }
+      .grow { flex: 1; min-width: 0; }
+      input, button, select {
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(10, 16, 24, 0.9);
+        color: var(--text);
+        padding: 12px 14px;
+        font-size: 15px;
+        min-height: 44px;
+        -webkit-appearance: none;
+        transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+      }
+      input:focus, select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px rgba(0,255,154,0.12);
+      }
+      label { color: var(--muted); font-size: 13px; font-weight: 600; }
+      button { cursor: pointer; touch-action: manipulation; font-weight: 600; letter-spacing: 0.01em; }
+      button.primary {
+        background: linear-gradient(120deg, var(--accent), var(--accent-2));
+        color: #03110b;
+        border: none;
+        box-shadow: var(--glow);
+      }
+      button.ghost {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      button.nav-pill { border-radius: 999px; padding: 12px 18px; }
       button:disabled { opacity: 0.6; cursor: not-allowed; }
       .muted { color: var(--muted); font-size: 13px; }
       .spacer { height: 12px; }
-      .flex { display:flex; gap: 12px; }
-      .grow { flex: 1; min-width: 0; }
-      .list { display:flex; gap:8px; flex-wrap: wrap; }
-      .pill { padding: 6px 12px; border-radius: 999px; border: 1px solid #2a2f3a; background:#0f1320; font-size: 13px; }
-      canvas { width: 100%; height: 200px; background: #0a0d16; border:1px solid #1e2430; border-radius: 8px; display:block; touch-action: none; }
-      .grid { display:grid; grid-template-columns: 2fr 1fr; gap: 16px; }
-      table { width:100%; border-collapse: collapse; font-size: 13px; }
-      th, td { padding: 8px 4px; border-bottom: 1px solid #222630; text-align: left; }
-      th { font-size: 12px; }
-      
+      .list { display: flex; gap: 8px; flex-wrap: wrap; }
+      .pill {
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.03);
+        font-size: 13px;
+        color: var(--text);
+      }
+      .pill.soft { color: var(--muted); }
+      canvas {
+        width: 100%;
+        height: 200px;
+        background: linear-gradient(180deg, rgba(12,18,28,0.9), rgba(9,14,22,0.95));
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        display: block;
+        touch-action: none;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { padding: 10px 6px; border-bottom: 1px solid var(--border); text-align: left; }
+      th { font-size: 12px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+      tr:hover td { background: rgba(255,255,255,0.02); }
+      .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+      .tagline {
+        font-family: 'IBM Plex Mono', 'Space Grotesk', monospace;
+        font-size: 13px;
+        letter-spacing: 0.02em;
+        color: var(--muted);
+      }
       /* Mobile optimizations */
-      @media (max-width: 800px) { 
-        .grid { grid-template-columns: 1fr; }
-        .wrap { padding: 12px; }
-        .card { padding: 12px; }
-        h1 { font-size: 20px; }
-        .row { gap: 6px; }
-        input, button, select { padding: 10px 12px; font-size: 16px; min-height: 44px; }
+      @media (max-width: 900px) {
+        .hero-panel { padding: 18px; }
+        .wrap { padding: 24px 16px 56px; }
+        h1 { font-size: 30px; }
+      }
+      @media (max-width: 720px) {
+        .hero-actions { gap: 8px; }
+        .nav-row { gap: 8px; }
+        .wrap { padding: 20px 14px 48px; }
         canvas { height: 180px; }
         table { font-size: 12px; }
-        th, td { padding: 6px 2px; }
-        .pill { padding: 5px 10px; font-size: 12px; }
       }
-      
-      @media (max-width: 480px) {
-        .wrap { padding: 8px; }
-        .card { padding: 10px; border-radius: 8px; }
-        h1 { font-size: 18px; margin: 0 0 8px 0; }
-        .row { gap: 4px; }
-        input, button, select { padding: 10px; font-size: 15px; }
-        canvas { height: 160px; }
-        .spacer { height: 8px; }
+      @media (max-width: 520px) {
+        .hero-actions { flex-direction: column; align-items: flex-start; }
+        h1 { font-size: 26px; }
+        input, button, select { padding: 10px 12px; font-size: 15px; }
+        canvas { height: 170px; }
+        .spacer { height: 10px; }
         table { font-size: 11px; }
-        th, td { padding: 4px 2px; }
-        .muted { font-size: 12px; }
+        th, td { padding: 8px 4px; }
       }
-      
       /* Prevent zoom on input focus on iOS */
       @media screen and (max-width: 768px) {
         input, select, textarea { font-size: 16px !important; }
@@ -65,33 +279,55 @@
     </style>
   </head>
   <body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
     <div class="wrap">
-      <div class="card">
-        <h1>Spam Game</h1>
-        <div class="row" style="margin-bottom:12px; gap:6px;">
-          <button id="navHost" class="primary" style="min-width:120px;">Host</button>
-          <button id="navJoin" class="primary" style="min-width:120px; background:#0f1320; border-color:#2a2f3a;">Join</button>
-          <span class="muted" style="flex:1;">Three clear phases: Host (set rules), Waiting room (ready up), Game & Results.</span>
+      <header class="card hero-panel">
+        <div class="hero-head">
+          <div class="eyebrow">Flashbots coordination lab</div>
+          <h1>Spam Game</h1>
+          <p class="lede">A neon-dark control room to test cost-aware coordination and latency under pressure. Host a room, ready up together, and watch the board reveal in real time.</p>
+          <div class="hero-actions">
+            <button id="navHost" class="primary nav-pill">Host a room</button>
+            <button id="navJoin" class="ghost nav-pill">Join a room</button>
+            <span class="pill soft">Three phases: Host → Ready → Play</span>
+          </div>
+        </div>
+        <div class="hero-meta">
+          <div class="chip live">Live synced</div>
+          <div class="stat">
+            <span>Visual</span>
+            <strong>Realtime board</strong>
+          </div>
+          <div class="stat">
+            <span>Payoff model</span>
+            <strong>Cost-aware</strong>
+          </div>
+        </div>
+      </header>
+      <div class="card surface">
+        <div class="nav-row">
+          <div class="tagline">Host → Ready → Play</div>
+          <span class="muted" style="flex:1;">Control flow: set rules, ready in lobby, play the interval game, then reveal payoffs.</span>
         </div>
 
         <!-- Host page: create rules and copy a share link -->
         <div id="host" class="view">
-          <div class="row">
+          <div class="stack">
             <input id="nameInput" placeholder="Your name (host)" />
-          </div>
-          <div class="spacer"></div>
-          <div class="row">
-            <div class="grow">
-              <div class="muted">Create Room</div>
-              <div class="row">
-                <label>Cost c</label>
-                <input id="costInput" type="number" value="0.05" step="0.01" min="0" style="width:100px"/>
-                <label>Duration (sec)</label>
-                <input id="durInput" type="number" value="10" step="5" min="5" style="width:100px"/>
+            <div class="row">
+              <div class="grow stack">
+                <div class="muted">Create Room</div>
+                <div class="row">
+                  <label>Cost c</label>
+                  <input id="costInput" type="number" value="0.05" step="0.01" min="0" style="width:120px"/>
+                  <label>Duration (sec)</label>
+                  <input id="durInput" type="number" value="10" step="5" min="5" style="width:120px"/>
+                </div>
+                <div class="muted" style="font-size: 12px; margin-top: 4px;">Rounds are started from the lobby once everyone is ready.</div>
               </div>
-              <div class="muted" style="font-size: 12px; margin-top: 4px;">Rounds are controlled from the waiting room after creation.</div>
+              <button id="createBtn" class="primary">Create Room</button>
             </div>
-            <button id="createBtn" class="primary">Create Room</button>
           </div>
         </div>
 

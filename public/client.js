@@ -3,25 +3,32 @@
 const socket = io();
 
 // Elements
+const $host = document.getElementById('host');
 const $join = document.getElementById('join');
 const $lobby = document.getElementById('lobby');
 const $play = document.getElementById('play');
 const $results = document.getElementById('results');
 
+const $navHost = document.getElementById('navHost');
+const $navJoin = document.getElementById('navJoin');
+
 const $nameInput = document.getElementById('nameInput');
+const $nameInputJoin = document.getElementById('nameInputJoin');
 const $costInput = document.getElementById('costInput');
 const $durInput = document.getElementById('durInput');
 const $roomInput = document.getElementById('roomInput');
 const $createBtn = document.getElementById('createBtn');
 const $joinBtn = document.getElementById('joinBtn');
-const $inviteLink = document.getElementById('inviteLink');
-const $copyLinkBtn = document.getElementById('copyLinkBtn');
+const $shareRow = document.getElementById('shareRow');
+const $shareLink = document.getElementById('shareLink');
+const $copyShareBtn = document.getElementById('copyShareBtn');
 const $startBtn = document.getElementById('startBtn');
 const $roomIdLabel = document.getElementById('roomIdLabel');
 const $players = document.getElementById('players');
 const $costLabel = document.getElementById('costLabel');
 const $durationLabel = document.getElementById('durationLabel');
 const $costLabel2 = document.getElementById('costLabel2');
+const $readyLabel = document.getElementById('readyLabel');
 
 const $board = document.getElementById('board');
 const $countdownLabel = document.getElementById('countdownLabel');
@@ -49,17 +56,38 @@ let myPoints = [];
 let myId = null;
 let myColor = '#4f46e5';
 let roundInfo = { current: 0, total: 0 };
+let isHost = false;
 let inviteUrl = '';
+let lastReadyCounts = { ready: 0, total: 0 };
 
 socket.on('connect', () => {
   myId = socket.id;
 });
 
 function show(section) {
+  $host.style.display = section === 'host' ? 'block' : 'none';
   $join.style.display = section === 'join' ? 'block' : 'none';
   $lobby.style.display = section === 'lobby' ? 'block' : 'none';
   $play.style.display = section === 'play' ? 'block' : 'none';
   $results.style.display = section === 'results' ? 'block' : 'none';
+
+  if ($navHost && $navJoin) {
+    $navHost.classList.remove('primary');
+    $navJoin.classList.remove('primary');
+    $navHost.style.background = '#0f1320';
+    $navHost.style.borderColor = '#2a2f3a';
+    $navJoin.style.background = '#0f1320';
+    $navJoin.style.borderColor = '#2a2f3a';
+    if (section === 'host') {
+      $navHost.classList.add('primary');
+      $navHost.style.background = '';
+      $navHost.style.borderColor = '';
+    } else if (section === 'join') {
+      $navJoin.classList.add('primary');
+      $navJoin.style.background = '';
+      $navJoin.style.borderColor = '';
+    }
+  }
 }
 
 function formatPoints(points) {
@@ -92,8 +120,8 @@ function extractRoomId(raw) {
 
 function buildInviteUrl(id) {
   const url = new URL(window.location.href);
-  url.pathname = `/room/${id}`;
-  url.searchParams.delete('room');
+  url.pathname = '/';
+  url.searchParams.set('room', id);
   url.hash = '';
   return url.toString();
 }
@@ -101,8 +129,11 @@ function buildInviteUrl(id) {
 function updateInviteLink(id) {
   if (!id) return;
   inviteUrl = buildInviteUrl(id);
-  if ($inviteLink) {
-    $inviteLink.value = inviteUrl;
+  if ($shareLink) {
+    $shareLink.textContent = inviteUrl;
+  }
+  if ($shareRow && isHost) {
+    $shareRow.style.display = 'flex';
   }
 }
 
@@ -115,6 +146,7 @@ function applyRoomToUrl(id) {
 function setRoomContext(rid, s) {
   if (rid) {
     roomId = rid;
+    lastReadyCounts = { ready: 0, total: 0 };
     updateInviteLink(roomId);
     applyRoomToUrl(roomId);
     if ($roomInput) $roomInput.value = roomId;
@@ -123,6 +155,9 @@ function setRoomContext(rid, s) {
   $roomIdLabel.textContent = roomId;
   $costLabel.textContent = settings.costPerPoint;
   $durationLabel.textContent = settings.durationSec;
+  if ($shareRow) {
+    $shareRow.style.display = isHost ? 'flex' : 'none';
+  }
 }
 
 // Canvas helpers
@@ -295,11 +330,8 @@ function setCountdown() {
 }
 
 function joinRoomById(rid, { silent = false } = {}) {
-  const targetId = extractRoomId(rid);
-  if (!targetId) {
-    if (!silent) alert('Enter a room code or invite link');
-    return;
-  }
+  const targetId = extractRoomId(rid) || '0'; // default to dev room when empty
+  isHost = false;
   socket.emit('join_room', { roomId: targetId, name: myName }, (res) => {
     if (!res?.ok) {
       if (!silent) alert(res?.error || 'Failed to join');
@@ -312,24 +344,31 @@ function joinRoomById(rid, { silent = false } = {}) {
 }
 
 // Interactions
-$createBtn.addEventListener('click', () => {
+$navHost?.addEventListener('click', () => show('host'));
+$navJoin?.addEventListener('click', () => show('join'));
+
+$createBtn?.addEventListener('click', () => {
   myName = ($nameInput.value || '').trim() || 'Host';
   const costPerPoint = parseFloat($costInput.value || '0.05');
   const durationSec = parseInt($durInput.value || '10', 10);
   socket.emit('create_room', { name: myName, costPerPoint, durationSec }, (res) => {
     if (!res?.ok) { alert(res?.error || 'Failed to create'); return; }
+    isHost = true;
     setRoomContext(res.roomId, res.settings);
+    if ($shareRow) $shareRow.style.display = 'flex';
     show('lobby');
   });
 });
 
-$joinBtn.addEventListener('click', () => {
-  myName = ($nameInput.value || '').trim() || 'Player';
-  const rid = extractRoomId($roomInput.value);
+$joinBtn?.addEventListener('click', () => {
+  myName = ($nameInputJoin?.value || $nameInput?.value || '').trim() || 'Player';
+  const rid = extractRoomId($roomInput.value) || '0';
+  isHost = false;
+  if (!$roomInput.value) $roomInput.value = rid;
   joinRoomById(rid);
 });
 
-$copyLinkBtn.addEventListener('click', async () => {
+$copyShareBtn?.addEventListener('click', async () => {
   if (!roomId) {
     alert('Create or join a room first');
     return;
@@ -337,9 +376,9 @@ $copyLinkBtn.addEventListener('click', async () => {
   const target = inviteUrl || buildInviteUrl(roomId);
   try {
     await navigator.clipboard.writeText(target);
-    const original = $copyLinkBtn.textContent;
-    $copyLinkBtn.textContent = 'Copied!';
-    setTimeout(() => { $copyLinkBtn.textContent = original || 'Copy link'; }, 1200);
+    const original = $copyShareBtn.textContent;
+    $copyShareBtn.textContent = 'Copied!';
+    setTimeout(() => { $copyShareBtn.textContent = original || 'Copy link'; }, 1200);
   } catch (err) {
     console.error('Clipboard copy failed, falling back to prompt', err);
     window.prompt('Copy invite link', target);
@@ -356,7 +395,7 @@ $startBtn.addEventListener('click', () => {
       if (res && !res.ok) {
         alert(res.error || 'Cannot ready up');
         $startBtn.disabled = false;
-        $startBtn.textContent = 'Start Round';
+        $startBtn.textContent = 'Ready / Start';
       }
     });
   }
@@ -432,17 +471,32 @@ socket.on('lobby', ({ roomId: rid, players, settings: s }) => {
   }
   // Reset start button
   $startBtn.disabled = false;
-  $startBtn.textContent = 'Start Round';
+  $startBtn.textContent = 'Ready / Start';
+  if ($readyLabel && lastReadyCounts.total > 0) {
+    $readyLabel.textContent = `Ready ${lastReadyCounts.ready}/${lastReadyCounts.total}`;
+  } else if ($readyLabel) {
+    $readyLabel.textContent = '';
+  }
+  // Show host-only sharing row
+  if (isHost && $shareRow) {
+    $shareRow.style.display = 'flex';
+  } else if ($shareRow) {
+    $shareRow.style.display = 'none';
+  }
   show('lobby');
 });
 
 socket.on('ready_to_start_status', ({ readyCount, totalPlayers }) => {
+  lastReadyCounts = { ready: readyCount, total: totalPlayers };
   if (readyCount < totalPlayers) {
     $startBtn.textContent = `Ready ${readyCount}/${totalPlayers}`;
     $startBtn.disabled = false;
   } else {
     $startBtn.textContent = 'Starting...';
     $startBtn.disabled = true;
+  }
+  if ($readyLabel) {
+    $readyLabel.textContent = `Ready ${readyCount}/${totalPlayers}`;
   }
 });
 
@@ -620,11 +674,11 @@ function hexWithAlpha(hex, alpha) {
 const initialRoom = getRoomFromLocation();
 if (initialRoom) {
   $roomInput.value = initialRoom;
-  myName = ($nameInput.value || '').trim() || 'Player';
+  myName = ($nameInputJoin?.value || $nameInput?.value || '').trim() || 'Player';
   show('join');
   joinRoomById(initialRoom, { silent: true });
 } else {
-  show('join');
+  show('host');
 }
 renderBoard();
 
