@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { Server } from 'socket.io';
 import { DEV_ROOM_ID } from './lib/constants.js';
 import { GameLifecycle } from './lib/gameLifecycle.js';
+import { logEvent } from './lib/logger.js';
 import { roomStore } from './lib/roomStore.js';
 import { ensureHostPlayer, ensurePlayerRecord, normalizeRoomId, sanitizeName, transferHostIfNeeded } from './lib/roomUtils.js';
 
@@ -18,10 +19,6 @@ function createAppServer() {
   const server = http.createServer(app);
   const io = new Server(server, { cors: { origin: '*' } });
   const lifecycle = new GameLifecycle(io);
-  const log = (...args) => {
-    // eslint-disable-next-line no-console
-    console.log('[socket]', ...args);
-  };
 
   app.use(express.static('public'));
   app.get('/api/public-rooms', (_req, res) => {
@@ -33,9 +30,9 @@ function createAppServer() {
   });
 
   io.on('connection', (socket) => {
-    log('connect', { socketId: socket.id });
+    logEvent('connect', { socketId: socket.id });
     socket.on('create_room', ({ name, costPerPoint, durationSec, totalRounds, preferredId }, cb) => {
-      log('create_room', { socketId: socket.id, preferredId, costPerPoint, durationSec, totalRounds });
+      logEvent('create_room', { socketId: socket.id, preferredId, costPerPoint, durationSec, totalRounds });
       if (roomStore.hasInProgressGame()) {
         return cb?.({ ok: false, error: 'A game is already in progress. Please wait for it to finish.' });
       }
@@ -43,7 +40,7 @@ function createAppServer() {
       if (!room) {
         return cb?.({ ok: false, error: 'Unable to create room (ID collision or game in progress).' });
       }
-      log('room_created', { socketId: socket.id, roomId: room.id, status: room.status, players: room.players.size });
+      logEvent('room_created', { socketId: socket.id, roomId: room.id, status: room.status, players: room.players.size });
       socket.join(room.id);
       cb?.({ ok: true, roomId: room.id, settings: room.settings });
       lifecycle.emitLobby(room.id);
@@ -59,7 +56,7 @@ function createAppServer() {
         ensurePlayerRecord(room, socket.id, { name: sanitizeName(name, 'Player'), socketId: socket.id });
       }
       socket.join(room.id);
-      log('join_room', { socketId: socket.id, roomId: room.id, status: room.status, players: room.players.size });
+      logEvent('join_room', { socketId: socket.id, roomId: room.id, status: room.status, players: room.players.size });
       cb?.({ ok: true, roomId: room.id, settings: room.settings });
       lifecycle.emitLobby(room.id);
       if (room.readyToStart?.size > 0) {
@@ -77,7 +74,7 @@ function createAppServer() {
       if (!room.readyToStart) room.readyToStart = new Set();
       room.readyToStart.add(socket.id);
       const payload = { readyCount: room.readyToStart.size, totalPlayers: room.players.size };
-      log('ready_to_start', { roomId, socketId: socket.id, payload, status: room.status });
+      logEvent('ready_to_start', { roomId, socketId: socket.id, payload, status: room.status });
       cb?.({ ok: true, ...payload });
       io.to(room.id).emit('ready_to_start_status', payload);
       if (room.readyToStart.size >= room.players.size) {
@@ -95,14 +92,14 @@ function createAppServer() {
         roomStore.resetRoomToLobby(room);
         lifecycle.emitLobby(room.id);
       }
-      log('start_game', { roomId, host: socket.id, players: room.players.size, status: room.status });
+      logEvent('start_game', { roomId, host: socket.id, players: room.players.size, status: room.status });
       lifecycle.startRound(room.id);
       cb?.({ ok: true });
     });
 
     socket.on('submit_points', ({ roomId, points, clientSentAt }, cb) => {
       const res = lifecycle.recordSubmission(roomId, socket.id, points, clientSentAt);
-      log('submit_points', {
+      logEvent('submit_points', {
         roomId,
         socketId: socket.id,
         ok: res?.ok,
@@ -127,20 +124,21 @@ function createAppServer() {
         room.hostName = updatedName;
       }
       lifecycle.emitLobby(room.id);
+      logEvent('set_name', { roomId, socketId: socket.id, name: updatedName });
       cb?.({ ok: true, name: updatedName, emoji: player.emoji });
     });
 
     socket.on('leave_room', ({ roomId }) => {
       const room = roomStore.get(roomId);
       if (!room) return;
-      log('leave_room', { socketId: socket.id, roomId });
+      logEvent('leave_room', { socketId: socket.id, roomId });
       roomStore.prunePlayer(room, socket.id);
       socket.leave(room.id);
       lifecycle.emitLobby(room.id);
     });
 
     socket.on('disconnect', () => {
-      log('disconnect', { socketId: socket.id });
+      logEvent('disconnect', { socketId: socket.id });
       for (const room of roomStore.rooms.values()) {
         if (room.players.has(socket.id)) {
           if (room.status === 'running') {
@@ -172,6 +170,7 @@ function createAppServer() {
       if (!room.players.has(socket.id)) return cb?.({ ok: false, error: 'Not in room' });
       room.readyNext.add(socket.id);
       const payload = { readyCount: room.readyNext.size, totalPlayers: room.players.size };
+      logEvent('ready_next', { roomId, socketId: socket.id, readyCount: room.readyNext.size, totalPlayers: room.players.size });
       cb?.({ ok: true, ...payload });
       io.to(room.id).emit('ready_status', payload);
       if (room.readyNext.size >= room.players.size) {
