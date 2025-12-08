@@ -496,10 +496,11 @@ socket.on('match_finished', ({ totals, totalRounds, winner }) => {
 $board.addEventListener('click', (e) => {
   const linePosition = getCurrentLinePosition();
   if (linePosition !== null) {
-    const eps = 0.02; // ~2% of the segment width
-    const existingIdx = myPoints.findIndex((p) => Math.abs(p - linePosition) < eps);
+    // Only treat a click as a delete when it's essentially on top of an existing point.
+    // A tighter epsilon prevents rapid clicks (as the line moves) from undoing the most recent point.
+    const removalEps = 0.005; // ~0.5% of the segment width
+    const existingIdx = myPoints.findIndex((p) => Math.abs(p - linePosition) < removalEps);
     if (existingIdx >= 0) {
-      // Remove if clicking near an existing point
       myPoints.splice(existingIdx, 1);
     } else {
       myPoints.push(linePosition);
