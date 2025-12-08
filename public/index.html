@@ -151,6 +151,8 @@
         -webkit-text-fill-color: transparent;
         text-shadow: 0 10px 38px rgba(158, 252, 255, 0.16), 0 6px 18px rgba(0, 0, 0, 0.35);
         position: relative;
+        background-size: 200% 100%;
+        animation: heroShine 9s ease-in-out infinite;
       }
       .hero-title::after {
         content: '';
@@ -160,6 +162,11 @@
         background: linear-gradient(90deg, rgba(158,252,255,0.7), rgba(216,195,255,0.45));
         filter: blur(10px);
         opacity: 0.7;
+      }
+      @keyframes heroShine {
+        0%, 75% { background-position: 0% 50%; }
+        85% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
       }
       .lede {
         margin: 0 0 16px 0;
