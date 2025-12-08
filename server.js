@@ -194,6 +194,24 @@ function ensureHostPlayer(room) {
   return ensurePlayerRecord(room, room.hostSocketId, { name: room.hostName || 'Host', socketId: room.hostSocketId });
 }
 
+function transferHostIfNeeded(room) {
+  if (!room) return;
+  if (room.hostSocketId && room.players.has(room.hostSocketId)) return;
+  const next = room.players.keys().next();
+  if (!next || next.done) {
+    room.hostSocketId = null;
+    room.hostName = 'Host';
+    return;
+  }
+  const newHostId = next.value;
+  room.hostSocketId = newHostId;
+  const newHost = room.players.get(newHostId);
+  if (newHost) {
+    room.hostName = newHost.name || 'Host';
+  }
+  ensureHostPlayer(room);
+}
+
 function sanitizePoints(raw) {
   if (!Array.isArray(raw)) return [];
   const clamped = raw
@@ -461,6 +479,7 @@ io.on('connection', (socket) => {
     if (!room) return;
     room.players.delete(socket.id);
     room.submissions.delete(socket.id);
+    room.readyNext.delete(socket.id);
     socket.leave(room.id);
     emitLobby(room.id);
   });
@@ -473,6 +492,11 @@ io.on('connection', (socket) => {
         room.submissions.delete(socket.id);
         room.totals.delete(socket.id);
         room.readyNext.delete(socket.id);
+        if (room.hostSocketId === socket.id) {
+          room.hostSocketId = null;
+          room.hostName = 'Host';
+          transferHostIfNeeded(room);
+        }
         emitLobby(room.id);
       }
       // If host disconnected and game not started, optionally transfer host; for now keep as-is.
