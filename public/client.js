@@ -603,9 +603,10 @@ socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds,
   }
   hasSubmitted = false; // Reset submission flag for next round
   
-  // Ensure we're showing results view
+  // Ensure we're showing results view and render after layout is visible
   console.log('Switching to results view');
-  renderReveal(results);
+  show('results');
+  requestAnimationFrame(() => renderReveal(results));
   if ($resultsLegend) {
     $resultsLegend.innerHTML = '';
     for (const r of results) {
