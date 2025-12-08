@@ -108,7 +108,7 @@ function ensureClickAudio() {
     if (!clickAudioCtx) {
       clickAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
       clickAudioBus = clickAudioCtx.createGain();
-      clickAudioBus.gain.value = 0.6; // bumped for audibility
+      clickAudioBus.gain.value = 1.0; // louder bed for SFX
       clickAudioBus.connect(clickAudioCtx.destination);
     } else if (clickAudioCtx.state === 'suspended') {
       clickAudioCtx.resume();
@@ -123,37 +123,69 @@ function ensureClickAudio() {
 function playSlotClickSound() {
   const ctx = ensureClickAudio();
   if (!ctx || !clickAudioBus) return;
+  if (ctx.state === 'suspended') ctx.resume();
   const now = ctx.currentTime;
 
-  const tone = ctx.createOscillator();
-  const toneGain = ctx.createGain();
-  tone.type = 'sawtooth';
-  tone.frequency.setValueAtTime(900, now);
-  tone.frequency.exponentialRampToValueAtTime(480, now + 0.25);
-  toneGain.gain.setValueAtTime(0.2, now);
-  toneGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+  // Metallic "ker-ching" sweep like a slot payout bell.
+  const body = ctx.createOscillator();
+  const bodyGain = ctx.createGain();
+  body.type = 'triangle';
+  body.frequency.setValueAtTime(420, now);
+  body.frequency.exponentialRampToValueAtTime(1250, now + 0.08);
+  body.frequency.exponentialRampToValueAtTime(780, now + 0.22); // rise then settle
+  bodyGain.gain.setValueAtTime(0.5, now);
+  bodyGain.gain.exponentialRampToValueAtTime(0.18, now + 0.16);
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+
+  // High chime for the coin sparkle.
+  const chime = ctx.createOscillator();
+  const chimeGain = ctx.createGain();
+  chime.type = 'square';
+  chime.frequency.setValueAtTime(1600, now + 0.02);
+  chime.frequency.exponentialRampToValueAtTime(2200, now + 0.14);
+  chimeGain.gain.setValueAtTime(0.42, now + 0.02);
+  chimeGain.gain.exponentialRampToValueAtTime(0.14, now + 0.16);
+  chimeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+  // Low thunk to feel the coin drop.
+  const thump = ctx.createOscillator();
+  const thumpGain = ctx.createGain();
+  thump.type = 'sine';
+  thump.frequency.setValueAtTime(180, now);
+  thump.frequency.exponentialRampToValueAtTime(120, now + 0.08);
+  thumpGain.gain.setValueAtTime(0.32, now);
+  thumpGain.gain.exponentialRampToValueAtTime(0.05, now + 0.12);
+  thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
 
   const noise = ctx.createBufferSource();
-  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < data.length; i++) {
     const t = i / data.length;
-    data[i] = (Math.random() * 2 - 1) * (1 - t); // decaying noise tail
+    data[i] = (Math.random() * 2 - 1) * (1 - t);
   }
   const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.08, now);
-  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  noiseGain.gain.setValueAtTime(0.18, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
   noise.buffer = buffer;
   noise.connect(noiseGain);
   noiseGain.connect(clickAudioBus);
 
-  tone.connect(toneGain);
-  toneGain.connect(clickAudioBus);
+  body.connect(bodyGain);
+  bodyGain.connect(clickAudioBus);
+  chime.connect(chimeGain);
+  chimeGain.connect(clickAudioBus);
+  thump.connect(thumpGain);
+  thumpGain.connect(clickAudioBus);
 
-  tone.start(now);
-  tone.stop(now + 0.35);
+  body.start(now);
+  body.stop(now + 0.5);
+  chime.start(now + 0.02);
+  chime.stop(now + 0.36);
+  thump.start(now);
+  thump.stop(now + 0.32);
   noise.start(now);
-  noise.stop(now + 0.2);
+  noise.stop(now + 0.24);
 }
 
 function playWinnerJingle() {
