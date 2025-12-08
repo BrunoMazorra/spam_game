@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: spam-game
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    autoDeploy: true
+    envVars:
+      # Render automatically injects PORT; no need to hardcode.
+      - key: NODE_ENV
+        value: production
