@@ -691,27 +691,42 @@ function renderReveal(results) {
     for (const x of r.points) all.push({ x, color: r.color, owner: r.name });
   }
   all.sort((a, b) => a.x - b.x);
-  // draw intervals colored by left point owner
+  // draw intervals colored by left point owner with a subtle gradient and stripe
   const yTop = 40;
   const yBottom = height - 40;
-  const pointSize = Math.max(4, Math.min(6, width / 150));
+  const pointSize = Math.max(5, Math.min(7, width / 140));
   for (let i = 0; i < all.length; i++) {
     const left = all[i];
     const right = all[i + 1];
     const x1 = 20 + left.x * (width - 40);
     const x2 = right ? 20 + right.x * (width - 40) : 20 + 1 * (width - 40);
     if (x2 > x1) {
-      ctx.fillStyle = hexWithAlpha(left.color, 0.25);
+      const grad = ctx.createLinearGradient(x1, 0, x2, 0);
+      grad.addColorStop(0, hexWithAlpha(left.color, 0.25));
+      grad.addColorStop(1, hexWithAlpha(left.color, 0.12));
+      ctx.fillStyle = grad;
       ctx.fillRect(x1, yTop, x2 - x1, yBottom - yTop);
+      // subtle stripe overlay for ownership
+      ctx.fillStyle = hexWithAlpha(left.color, 0.08);
+      ctx.fillRect(x1, yTop, (x2 - x1) * 0.25, yBottom - yTop);
     }
   }
-  // draw points over intervals
+  // draw points over intervals with outline/shadow
   for (const p of all) {
     const px = 20 + p.x * (width - 40);
+    const py = (yTop + yBottom) / 2;
+    ctx.save();
+    ctx.shadowColor = hexWithAlpha(p.color, 0.35);
+    ctx.shadowBlur = 10;
     ctx.fillStyle = p.color;
     ctx.beginPath();
-    ctx.arc(px, (yTop + yBottom) / 2, pointSize, 0, Math.PI * 2);
+    ctx.arc(px, py, pointSize, 0, Math.PI * 2);
     ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
