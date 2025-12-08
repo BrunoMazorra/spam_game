@@ -17,6 +17,18 @@ const socket = io(SOCKET_URL, {
   transports: ['websocket', 'polling']
 });
 
+function buildApiUrl(pathname) {
+  const normalizedPath = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  if (SOCKET_URL) {
+    try {
+      return new URL(normalizedPath, SOCKET_URL).toString();
+    } catch (err) {
+      console.warn('Failed to build API URL', err);
+    }
+  }
+  return normalizedPath;
+}
+
 // Elements
 const $host = document.getElementById('host');
 const $join = document.getElementById('join');
@@ -87,6 +99,62 @@ let lastKnownRoomId = '';
 let publicRoomsTimer = null;
 let winnerEmojiTimer = null;
 let publicRoomsLoading = false;
+let clickAudioCtx = null;
+let clickAudioBus = null;
+// Short slot-machine style chirp for point drops
+function ensureClickAudio() {
+  try {
+    if (!clickAudioCtx) {
+      clickAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      clickAudioBus = clickAudioCtx.createGain();
+      clickAudioBus.gain.value = 0.35;
+      clickAudioBus.connect(clickAudioCtx.destination);
+    } else if (clickAudioCtx.state === 'suspended') {
+      clickAudioCtx.resume();
+    }
+    return clickAudioCtx;
+  } catch (err) {
+    console.warn('Audio init failed', err);
+    return null;
+  }
+}
+
+function playSlotClickSound() {
+  const ctx = ensureClickAudio();
+  if (!ctx || !clickAudioBus) return;
+  const now = ctx.currentTime;
+
+  const tone = ctx.createOscillator();
+  const toneGain = ctx.createGain();
+  tone.type = 'sawtooth';
+  tone.frequency.setValueAtTime(900, now);
+  tone.frequency.exponentialRampToValueAtTime(480, now + 0.25);
+  toneGain.gain.setValueAtTime(0.14, now);
+  toneGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+  const noise = ctx.createBufferSource();
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    const t = i / data.length;
+    data[i] = (Math.random() * 2 - 1) * (1 - t); // decaying noise tail
+  }
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.08, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  noise.buffer = buffer;
+  noise.connect(noiseGain);
+  noiseGain.connect(clickAudioBus);
+
+  tone.connect(toneGain);
+  toneGain.connect(clickAudioBus);
+
+  tone.start(now);
+  tone.stop(now + 0.35);
+  noise.start(now);
+  noise.stop(now + 0.2);
+}
+
 // Final celebration overlay elements (injected at runtime)
 const finalCelebrationStyles = document.createElement('style');
 finalCelebrationStyles.id = 'finalCelebrationStyles';
@@ -455,7 +523,7 @@ async function refreshPublicRooms() {
   try {
     publicRoomsLoading = true;
     renderPublicRooms([]);
-    const res = await fetch('/api/public-rooms');
+    const res = await fetch(buildApiUrl('/api/public-rooms'));
     const data = await res.json();
     const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
     renderPublicRooms(rooms);
@@ -869,6 +937,7 @@ $board.addEventListener('click', (e) => {
       myPoints.push(linePosition);
       myPoints.sort((a, b) => a - b);
       flashCost(e.clientX, e.clientY);
+      playSlotClickSound();
     }
     updateMyPointsUI();
     renderBoard();
