@@ -23,6 +23,7 @@ const $nameInputJoin = document.getElementById('nameInputJoin');
 const $costInput = document.getElementById('costInput');
 const $durInput = document.getElementById('durInput');
 const $roomInput = document.getElementById('roomInput');
+const $myNameLobbyInput = document.getElementById('myNameLobbyInput');
 const $createBtn = document.getElementById('createBtn');
 const $joinBtn = document.getElementById('joinBtn');
 const $shareRow = document.getElementById('shareRow');
@@ -35,6 +36,8 @@ const $costLabel = document.getElementById('costLabel');
 const $durationLabel = document.getElementById('durationLabel');
 const $costLabel2 = document.getElementById('costLabel2');
 const $readyLabel = document.getElementById('readyLabel');
+const $myEmojiBadge = document.getElementById('myEmojiBadge');
+const $setNameBtn = document.getElementById('setNameBtn');
 
 const $board = document.getElementById('board');
 const $countdownLabel = document.getElementById('countdownLabel');
@@ -62,6 +65,7 @@ let countdownTimer = null;
 let myPoints = [];
 let myId = null;
 let myColor = '#ff4b4b';
+let myEmoji = '';
 let roundInfo = { current: 0, total: 0 };
 let isHost = false;
 let inviteUrl = '';
@@ -100,6 +104,21 @@ function formatPoints(points) {
 
 function displayName(name, emoji) {
   return emoji ? `${emoji} ${name}` : name;
+}
+
+function updateMyIdentityUI(player) {
+  if (player) {
+    myName = player.name;
+    myEmoji = player.emoji || myEmoji || '🐾';
+    if ($myNameLobbyInput && document.activeElement !== $myNameLobbyInput) {
+      $myNameLobbyInput.value = player.name;
+    }
+    if ($myEmojiBadge) {
+      $myEmojiBadge.textContent = myEmoji || '🐾';
+    }
+  } else {
+    if ($myEmojiBadge) $myEmojiBadge.textContent = myEmoji || '🐾';
+  }
 }
 
 function getRoomFromLocation() {
@@ -268,9 +287,7 @@ function updateMyPointsUI() {
 }
 
 let hasSubmitted = false;
-let costFlashEl = null;
-let costFlashTimer = null;
-let costFlashCount = 0;
+let clickCostTotal = 0;
 
 function submitPoints() {
   // Submit points function - used by both auto-submit and manual submit
@@ -379,6 +396,28 @@ $joinBtn?.addEventListener('click', () => {
   joinRoomById(rid);
 });
 
+$setNameBtn?.addEventListener('click', () => {
+  if (!roomId) return;
+  const desiredName = ($myNameLobbyInput?.value || '').trim() || 'Player';
+  socket.emit('set_name', { roomId, name: desiredName }, (res) => {
+    if (!res?.ok) {
+      alert(res?.error || 'Failed to update name');
+      return;
+    }
+    myName = res.name;
+    myEmoji = res.emoji || myEmoji;
+    if ($myNameLobbyInput) $myNameLobbyInput.value = res.name;
+    if ($myEmojiBadge) $myEmojiBadge.textContent = myEmoji || '🐾';
+  });
+});
+
+$myNameLobbyInput?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    $setNameBtn?.click();
+  }
+});
+
 $copyShareBtn?.addEventListener('click', async () => {
   if (!roomId) {
     alert('Create or join a room first');
@@ -473,38 +512,30 @@ $board.addEventListener('click', (e) => {
 });
 
 function flashCost(clientX, clientY) {
-  if (!costFlashEl) {
-    costFlashEl = document.createElement('div');
-    costFlashEl.className = 'cost-flash';
-    document.body.appendChild(costFlashEl);
-  }
-  costFlashCount += 1;
+  const flash = document.createElement('div');
+  flash.className = 'cost-flash';
   const cost = Number(settings.costPerPoint ?? 0.05) || 0;
-  const displayCost = cost.toFixed(2);
-  costFlashEl.textContent = `-$${displayCost}${costFlashCount > 1 ? ` x${costFlashCount}` : ''}`;
-  costFlashEl.style.left = `${clientX}px`;
-  costFlashEl.style.top = `${clientY}px`;
-  costFlashEl.style.transform = 'translate(-50%, -50%) translateY(0px)';
-  costFlashEl.style.opacity = '0';
+  clickCostTotal += cost;
+  const displayCost = clickCostTotal.toFixed(2);
+  flash.textContent = `-$${displayCost}`;
+  flash.style.left = `${clientX}px`;
+  flash.style.top = `${clientY}px`;
+  flash.style.transform = 'translate(-50%, -50%) translateY(0px)';
+  flash.style.opacity = '0';
+  document.body.appendChild(flash);
   requestAnimationFrame(() => {
-    costFlashEl.style.opacity = '1';
-    costFlashEl.style.transform = 'translate(-50%, -50%) translateY(-8px)';
+    flash.style.opacity = '1';
+    flash.style.transform = 'translate(-50%, -50%) translateY(-10px)';
   });
-  if (costFlashTimer) clearTimeout(costFlashTimer);
-  costFlashTimer = setTimeout(() => {
-    if (!costFlashEl) return;
-    costFlashEl.style.opacity = '0';
-    costFlashEl.style.transform = 'translate(-50%, -50%) translateY(-16px)';
-    setTimeout(() => {
-      costFlashCount = 0;
-      costFlashEl?.remove();
-      costFlashEl = null;
-    }, 200);
-  }, 400);
+  setTimeout(() => {
+    flash.style.opacity = '0';
+    flash.style.transform = 'translate(-50%, -50%) translateY(-18px)';
+    setTimeout(() => flash.remove(), 200);
+  }, 420);
 }
 
 // Socket listeners
-socket.on('lobby', ({ roomId: rid, players, settings: s }) => {
+socket.on('lobby', ({ roomId: rid, players, settings: s, status }) => {
   setRoomContext(rid, s);
   $players.innerHTML = '';
   for (const p of players) {
@@ -516,8 +547,11 @@ socket.on('lobby', ({ roomId: rid, players, settings: s }) => {
   }
   const me = players.find((p) => p.id === myId);
   if (me) {
+    updateMyIdentityUI(me);
     myColor = me.color;
     renderBoard();
+  } else {
+    updateMyIdentityUI(null);
   }
   // Reset start button
   $startBtn.disabled = false;
@@ -533,7 +567,11 @@ socket.on('lobby', ({ roomId: rid, players, settings: s }) => {
   } else if ($shareRow) {
     $shareRow.style.display = 'none';
   }
-  show('lobby');
+  // Only switch the view when the server says the room is in lobby.
+  // If a disconnect happens mid-round we still want to stay on play/results.
+  if (status === 'lobby') {
+    show('lobby');
+  }
 });
 
 socket.on('ready_to_start_status', ({ readyCount, totalPlayers }) => {
@@ -573,6 +611,7 @@ socket.on('game_started', ({ startedAt, revealAt, settings: s, currentRound, tot
   settings = s;
   gameTimes = { startedAt, revealAt };
   $costLabel2.textContent = settings.costPerPoint;
+  clickCostTotal = 0; // reset cost accumulator each round
   roundInfo = { current: currentRound || 0, total: totalRounds || 0 };
   $roundLabel.textContent = `${roundInfo.current}/${roundInfo.total}`;
   myPoints = [];
