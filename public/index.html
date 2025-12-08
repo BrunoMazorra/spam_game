@@ -58,9 +58,9 @@
       .wrap {
         position: relative;
         z-index: 1;
-        max-width: 1100px;
+        max-width: 1080px;
         margin: 0 auto;
-        padding: 40px 28px 72px;
+        padding: 40px 26px 72px;
       }
       .masthead {
         display: flex;
@@ -268,7 +268,7 @@
         box-shadow: 0 0 0 4px rgba(0,255,154,0.12);
       }
       label { color: var(--muted); font-size: 13px; font-weight: 600; }
-      button { cursor: pointer; touch-action: manipulation; font-weight: 600; letter-spacing: 0.01em; }
+      button { cursor: pointer; touch-action: manipulation; font-weight: 600; letter-spacing: 0.01em; transition: transform 140ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease; }
       button.primary {
         background: linear-gradient(120deg, var(--accent), var(--accent-2));
         color: #160b0b;
@@ -282,6 +282,19 @@
       }
       button.nav-pill { border-radius: 999px; padding: 12px 18px; }
       .nav-pill.is-active { box-shadow: var(--glow); border-color: var(--accent); }
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 42px rgba(255, 75, 75, 0.34);
+      }
+      button.ghost:hover {
+        border-color: rgba(255,255,255,0.16);
+        background: rgba(255,255,255,0.05);
+        box-shadow: 0 8px 22px rgba(0,0,0,0.25);
+      }
+      button:active {
+        transform: translateY(0px) scale(0.99);
+        box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+      }
       button:disabled { opacity: 0.6; cursor: not-allowed; }
       .muted { color: var(--muted); font-size: 13px; }
       .spacer { height: 14px; }
@@ -293,6 +306,10 @@
         background: rgba(255,255,255,0.025);
         font-size: 13px;
         color: var(--text);
+      }
+      .pill:hover {
+        border-color: rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.05);
       }
       .pill.soft { color: var(--muted); }
       canvas {
@@ -319,7 +336,7 @@
       }
       .section {
         display: grid;
-        grid-template-columns: 2.2fr 1fr;
+        grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr);
         gap: 20px;
         align-items: start;
       }
