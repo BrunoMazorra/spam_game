@@ -111,9 +111,22 @@ function createAppServer() {
     socket.on('disconnect', () => {
       for (const room of roomStore.rooms.values()) {
         if (room.players.has(socket.id)) {
-          roomStore.prunePlayer(room, socket.id);
-          transferHostIfNeeded(room);
-          lifecycle.emitLobby(room.id);
+          if (room.status === 'running') {
+            // Defer pruning until results are emitted so scores still show up.
+            if (!room.pendingPrune) room.pendingPrune = new Set();
+            room.pendingPrune.add(socket.id);
+            room.readyNext.delete(socket.id);
+            room.readyToStart?.delete?.(socket.id);
+          } else if (room.status === 'revealed') {
+            // Safe to remove now but keep totals so results and winner stay accurate.
+            roomStore.prunePlayer(room, socket.id, { keepTotals: true });
+            transferHostIfNeeded(room);
+            io.to(room.id).emit('ready_status', { readyCount: room.readyNext.size, totalPlayers: room.players.size });
+          } else {
+            roomStore.prunePlayer(room, socket.id);
+            transferHostIfNeeded(room);
+            lifecycle.emitLobby(room.id);
+          }
         }
       }
     });
