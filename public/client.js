@@ -65,6 +65,9 @@ const $roundLabel = document.getElementById('roundLabel');
 const $nextRoundBtn = document.getElementById('nextRoundBtn');
 const $readyStatus = document.getElementById('readyStatus');
 const $resultsLegend = document.getElementById('resultsLegend');
+const $publicRoomsList = document.getElementById('publicRoomsList');
+const $publicRoomsEmpty = document.getElementById('publicRoomsEmpty');
+const $refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
 
 // State
 let myName = '';
@@ -81,6 +84,182 @@ let isHost = false;
 let inviteUrl = '';
 let lastReadyCounts = { ready: 0, total: 0 };
 let lastKnownRoomId = '';
+let publicRoomsTimer = null;
+let winnerEmojiTimer = null;
+let publicRoomsLoading = false;
+// Final celebration overlay elements (injected at runtime)
+const finalCelebrationStyles = document.createElement('style');
+finalCelebrationStyles.id = 'finalCelebrationStyles';
+finalCelebrationStyles.textContent = `
+#finalCelebrationOverlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 107, 107, 0.25), transparent 38%),
+              radial-gradient(circle at 70% 10%, rgba(158, 252, 255, 0.22), transparent 34%),
+              rgba(5, 6, 8, 0.76);
+  backdrop-filter: blur(10px);
+  z-index: 2000;
+}
+#finalCelebrationCard {
+  width: min(640px, 92vw);
+  background: linear-gradient(135deg, rgba(15, 20, 28, 0.95), rgba(12, 14, 18, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 26px;
+  box-shadow: 0 28px 64px rgba(0, 0, 0, 0.4), 0 0 24px rgba(255, 107, 107, 0.3);
+  color: #eef0f3;
+  position: relative;
+  overflow: hidden;
+}
+#finalCelebrationCard::after {
+  content: '';
+  position: absolute;
+  inset: -30% -10% auto;
+  height: 180px;
+  background: radial-gradient(circle, rgba(158, 252, 255, 0.18), transparent 50%);
+  opacity: 0.9;
+  pointer-events: none;
+  filter: blur(6px);
+}
+#finalChampion {
+  font-size: 26px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.2px;
+}
+#finalChampion small {
+  font-size: 14px;
+  color: #9fb3c8;
+  font-weight: 600;
+}
+#finalScoreboard {
+  margin: 16px 0 10px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+#finalScoreboardRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.final-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 120px;
+  align-items: center;
+  padding: 10px 12px;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.final-row:nth-child(even) { background: rgba(255, 255, 255, 0.03); }
+.final-row.winner {
+  background: linear-gradient(120deg, rgba(255, 107, 107, 0.14), rgba(158, 252, 255, 0.1));
+  border-bottom-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 30px rgba(255, 107, 107, 0.24);
+}
+.final-rank {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #fff;
+}
+.final-payoff {
+  text-align: right;
+  font-weight: 700;
+  color: #fefefe;
+}
+#finalCloseBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  padding: 6px 10px;
+  color: #fff;
+  font-weight: 700;
+}
+#finalConfetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255,107,107,0.35) 0, transparent 18%),
+    radial-gradient(circle at 80% 10%, rgba(158,252,255,0.4) 0, transparent 16%),
+    radial-gradient(circle at 60% 70%, rgba(216,195,255,0.28) 0, transparent 18%);
+  opacity: 0;
+  animation: confettiPulse 2.6s ease forwards;
+}
+@keyframes confettiPulse {
+  0% { opacity: 0; transform: scale(0.96); }
+  30% { opacity: 1; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.02); }
+}
+`;
+document.head.appendChild(finalCelebrationStyles);
+
+const $finalCelebration = document.createElement('div');
+$finalCelebration.id = 'finalCelebrationOverlay';
+$finalCelebration.innerHTML = `
+  <div id="finalCelebrationCard">
+    <div id="finalConfetti"></div>
+    <button id="finalCloseBtn" aria-label="Close final results">×</button>
+    <div id="finalChampion">Champion</div>
+    <div class="muted" id="finalRoundsSummary"></div>
+    <div id="finalScoreboard"></div>
+  </div>
+`;
+document.body.appendChild($finalCelebration);
+const $finalChampion = $finalCelebration.querySelector('#finalChampion');
+const $finalScoreboard = $finalCelebration.querySelector('#finalScoreboard');
+const $finalRoundsSummary = $finalCelebration.querySelector('#finalRoundsSummary');
+const $finalCloseBtn = $finalCelebration.querySelector('#finalCloseBtn');
+$finalCloseBtn.addEventListener('click', () => {
+  $finalCelebration.style.display = 'none';
+});
+
+function renderFinalCelebration({ totals, totalRounds, winner }) {
+  if (!$finalCelebration || !$finalChampion || !$finalScoreboard) return;
+  const champion = winner || (Array.isArray(totals) && totals[0]);
+  if (!champion) return;
+  const sorted = Array.isArray(totals) ? [...totals].sort((a, b) => b.totalPayoff - a.totalPayoff) : [];
+  $finalChampion.textContent = `${displayName(champion.name, champion.emoji)} is the champion!`;
+  const roundsText = totalRounds ? `${totalRounds} rounds` : (sorted.length ? 'all rounds' : 'the match');
+  $finalRoundsSummary.textContent = `After ${roundsText}`;
+  $finalScoreboard.innerHTML = '';
+  if (sorted.length) {
+    sorted.forEach((t, idx) => {
+      const row = document.createElement('div');
+      row.className = 'final-row';
+      if (champion && champion.playerId === t.playerId) row.classList.add('winner');
+      const rank = document.createElement('div');
+      rank.className = 'final-rank';
+      rank.textContent = `#${idx + 1}`;
+      const name = document.createElement('div');
+      name.textContent = displayName(t.name, t.emoji);
+      name.style.color = t.color;
+      const payoff = document.createElement('div');
+      payoff.className = 'final-payoff';
+      payoff.textContent = t.totalPayoff.toFixed(4);
+      row.appendChild(rank);
+      row.appendChild(name);
+      row.appendChild(payoff);
+      $finalScoreboard.appendChild(row);
+    });
+  }
+  $finalCelebration.style.display = 'flex';
+}
 
 function setError(message) {
   if (!$errorBar) return;
@@ -145,6 +324,45 @@ function formatPoints(points) {
 
 function displayName(name, emoji) {
   return emoji ? `${emoji} ${name}` : name;
+}
+
+function clearWinnerEmoji() {
+  if (winnerEmojiTimer) {
+    clearTimeout(winnerEmojiTimer);
+    winnerEmojiTimer = null;
+  }
+  const existing = $winnerLabel?.querySelector('.party-emoji');
+  if (existing) existing.remove();
+}
+
+function showPartyEmoji(target) {
+  if (!target) return;
+  clearWinnerEmoji();
+  const emoji = document.createElement('span');
+  emoji.className = 'party-emoji';
+  emoji.textContent = '🎉';
+  target.appendChild(emoji);
+  const remove = () => {
+    emoji.remove();
+    if (winnerEmojiTimer) {
+      clearTimeout(winnerEmojiTimer);
+      winnerEmojiTimer = null;
+    }
+  };
+  emoji.addEventListener('animationend', remove, { once: true });
+  winnerEmojiTimer = setTimeout(remove, 2000);
+}
+
+function renderWinnerLabel(winner) {
+  if (!$winnerLabel) return;
+  if (!winner) {
+    $winnerLabel.textContent = 'No winner (no submissions)';
+    clearWinnerEmoji();
+    return;
+  }
+  const text = `Winner: ${displayName(winner.name, winner.emoji)} • payoff ${winner.payoff.toFixed(4)}`;
+  $winnerLabel.textContent = text;
+  showPartyEmoji($winnerLabel);
 }
 
 function updateMyIdentityUI(player) {
@@ -224,8 +442,78 @@ function setRoomContext(rid, s) {
   $roomIdLabel.textContent = roomId;
   $costLabel.textContent = settings.costPerPoint;
   $durationLabel.textContent = settings.durationSec;
+  if ($roundLabel && roundInfo.total) {
+    $roundLabel.textContent = `${roundInfo.current}/${roundInfo.total}`;
+  }
   if ($shareRow) {
     $shareRow.style.display = isHost ? 'flex' : 'none';
+  }
+}
+
+async function refreshPublicRooms() {
+  if (!$publicRoomsList) return;
+  try {
+    publicRoomsLoading = true;
+    renderPublicRooms([]);
+    const res = await fetch('/api/public-rooms');
+    const data = await res.json();
+    const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
+    renderPublicRooms(rooms);
+  } catch (err) {
+    console.error('Failed to load public rooms', err);
+    renderPublicRooms([]);
+  } finally {
+    publicRoomsLoading = false;
+  }
+}
+
+function renderPublicRooms(rooms) {
+  if (!$publicRoomsList) return;
+  $publicRoomsList.innerHTML = '';
+  if (publicRoomsLoading) {
+    const row = document.createElement('div');
+    row.className = 'muted';
+    row.textContent = 'Loading rooms...';
+    $publicRoomsList.appendChild(row);
+    return;
+  }
+  if (!rooms.length) {
+    if ($publicRoomsEmpty) {
+      $publicRoomsEmpty.style.display = 'block';
+      $publicRoomsEmpty.textContent = 'No public rooms available yet.';
+      $publicRoomsList.appendChild($publicRoomsEmpty);
+    }
+    return;
+  }
+  if ($publicRoomsEmpty) $publicRoomsEmpty.style.display = 'none';
+  for (const room of rooms) {
+    const btn = document.createElement('button');
+    btn.className = 'ghost public-room';
+    const left = document.createElement('div');
+    left.textContent = `Room ${room.id}`;
+    const right = document.createElement('div');
+    right.className = 'muted';
+    right.textContent = `${room.players} in lobby`;
+    btn.appendChild(left);
+    btn.appendChild(right);
+    btn.addEventListener('click', () => {
+      if ($roomInput) $roomInput.value = room.id;
+      joinRoomById(room.id);
+    });
+    $publicRoomsList.appendChild(btn);
+  }
+}
+
+function startPublicRoomsPolling() {
+  refreshPublicRooms();
+  if (publicRoomsTimer) clearInterval(publicRoomsTimer);
+  publicRoomsTimer = setInterval(() => refreshPublicRooms(), 10000);
+}
+
+function stopPublicRoomsPolling() {
+  if (publicRoomsTimer) {
+    clearInterval(publicRoomsTimer);
+    publicRoomsTimer = null;
   }
 }
 
@@ -421,12 +709,19 @@ function joinRoomById(rid, { silent = false } = {}) {
     const joinedId = res.roomId || targetId;
     setRoomContext(joinedId, res.settings);
     show('lobby');
+    stopPublicRoomsPolling();
   });
 }
 
 // Interactions
-$navHost?.addEventListener('click', () => show('host'));
-$navJoin?.addEventListener('click', () => show('join'));
+$navHost?.addEventListener('click', () => {
+  stopPublicRoomsPolling();
+  show('host');
+});
+$navJoin?.addEventListener('click', () => {
+  show('join');
+  startPublicRoomsPolling();
+});
 
 $createBtn?.addEventListener('click', () => {
   myName = ($nameInput.value || '').trim() || 'Host';
@@ -524,6 +819,8 @@ $backToLobbyBtn.addEventListener('click', () => {
   show('lobby');
 });
 
+$refreshRoomsBtn?.addEventListener('click', () => refreshPublicRooms());
+
 $nextRoundBtn.addEventListener('click', () => {
   if (!roomId) return;
   $nextRoundBtn.disabled = true;
@@ -552,6 +849,11 @@ socket.on('match_finished', ({ totals, totalRounds, winner }) => {
   const winnerText = winner ? ` Winner: ${displayName(winner.name, winner.emoji)} (${winner.totalPayoff.toFixed(4)}).` : '';
   $readyStatus.textContent = `Match finished (${totalRounds} rounds).${winnerText}${summary}`;
   $nextRoundBtn.style.display = 'none';
+  if ($winnerLabel && winner) {
+    $winnerLabel.textContent = `Champion: ${displayName(winner.name, winner.emoji)} • total payoff ${winner.totalPayoff.toFixed(4)}`;
+    showPartyEmoji($winnerLabel);
+  }
+  renderFinalCelebration({ totals, totalRounds, winner });
 });
 
 $board.addEventListener('click', (e) => {
@@ -683,8 +985,11 @@ socket.on('game_started', ({ startedAt, revealAt, settings: s, currentRound, tot
   renderBoard();
   hasSubmitted = false; // Reset submission flag
   $readyStatus.textContent = '';
-  $nextRoundBtn.disabled = false;
+  $nextRoundBtn.disabled = true;
   $nextRoundBtn.textContent = 'Next Round';
+  if ($nextRoundBtn) {
+    $nextRoundBtn.style.display = 'none'; // only show in results view
+  }
   $countdownDisplay.style.display = 'none'; // Hide countdown if still visible
   setCountdown();
   console.log('Calling show("play")');
@@ -714,14 +1019,16 @@ socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds,
   if ($resultsLegend) {
     $resultsLegend.innerHTML = '';
     for (const r of results) {
+      const isWinner = winner && winner.playerId === r.playerId;
       const row = document.createElement('div');
       row.className = 'legend-item';
+      if (isWinner) row.classList.add('winner');
       const dot = document.createElement('div');
       dot.className = 'legend-dot';
       dot.style.background = r.color;
       dot.style.borderColor = r.color;
       const text = document.createElement('div');
-      text.textContent = `${displayName(r.name, r.emoji)}: ${r.points.length} pts • payoff ${r.payoff.toFixed(4)}`;
+      text.textContent = `${displayName(r.name, r.emoji)}: ${r.points.length} pts • payoff ${r.payoff.toFixed(4)}${isWinner ? ' • winner' : ''}`;
       row.appendChild(dot);
       row.appendChild(text);
       $resultsLegend.appendChild(row);
@@ -748,7 +1055,9 @@ socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds,
     $resultsBody.appendChild(tr);
   } else {
     for (const r of results) {
+      const isWinner = winner && winner.playerId === r.playerId;
       const tr = document.createElement('tr');
+      if (isWinner) tr.classList.add('winner-row');
       const nameTd = document.createElement('td');
       nameTd.textContent = displayName(r.name, r.emoji);
       nameTd.style.color = r.color;
@@ -768,12 +1077,22 @@ socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds,
       $resultsBody.appendChild(tr);
     }
   }
-  $winnerLabel.textContent = winner ? `Winner: ${displayName(winner.name, winner.emoji)} (payoff: ${winner.payoff.toFixed(4)})` : 'No winner (no submissions)';
+  renderWinnerLabel(winner);
   roundInfo = { current: currentRound || roundInfo.current, total: totalRounds || roundInfo.total };
   $roundLabel.textContent = `${roundInfo.current}/${roundInfo.total}`;
-  // Single-game mode: always finished after first results
-  if ($nextRoundBtn) $nextRoundBtn.style.display = 'none';
-  if ($readyStatus) $readyStatus.textContent = 'Match finished.';
+  const moreRounds = roundInfo.current < roundInfo.total;
+  if ($nextRoundBtn) {
+    $nextRoundBtn.style.display = moreRounds ? 'inline-flex' : 'none';
+    $nextRoundBtn.disabled = false;
+    $nextRoundBtn.textContent = moreRounds ? 'Next Round' : 'Next Round';
+  }
+  if ($readyStatus) {
+    if (moreRounds) {
+      $readyStatus.textContent = 'Click Next Round to continue.';
+    } else {
+      $readyStatus.textContent = 'Match finished.';
+    }
+  }
   show('results');
   console.log('Results view displayed');
 });
@@ -804,23 +1123,25 @@ function renderReveal(results) {
     for (const x of r.points) all.push({ x, color: r.color, owner: r.name });
   }
   all.sort((a, b) => a.x - b.x);
-  // draw intervals colored by left point owner with a subtle gradient and stripe
+  // draw intervals colored by the right point owner (area to the left of the point)
   const yTop = 40;
   const yBottom = height - 40;
   const pointSize = Math.max(5, Math.min(7, width / 140));
   for (let i = 0; i < all.length; i++) {
-    const left = all[i];
-    const right = all[i + 1];
-    const x1 = 20 + left.x * (width - 40);
-    const x2 = right ? 20 + right.x * (width - 40) : 20 + 1 * (width - 40);
+    const current = all[i];
+    const prev = all[i - 1];
+    const x1Val = prev ? prev.x : 0;
+    const x2Val = current.x;
+    const x1 = 20 + x1Val * (width - 40);
+    const x2 = 20 + x2Val * (width - 40);
     if (x2 > x1) {
       const grad = ctx.createLinearGradient(x1, 0, x2, 0);
-      grad.addColorStop(0, hexWithAlpha(left.color, 0.25));
-      grad.addColorStop(1, hexWithAlpha(left.color, 0.12));
+      grad.addColorStop(0, hexWithAlpha(current.color, 0.25));
+      grad.addColorStop(1, hexWithAlpha(current.color, 0.12));
       ctx.fillStyle = grad;
       ctx.fillRect(x1, yTop, x2 - x1, yBottom - yTop);
       // subtle stripe overlay for ownership
-      ctx.fillStyle = hexWithAlpha(left.color, 0.08);
+      ctx.fillStyle = hexWithAlpha(current.color, 0.08);
       ctx.fillRect(x1, yTop, (x2 - x1) * 0.25, yBottom - yTop);
     }
   }
@@ -862,8 +1183,5 @@ if (initialRoom) {
   show('host');
 }
 renderBoard();
-
-// Single-game mode: hide next-round UI
-if ($nextRoundBtn) $nextRoundBtn.style.display = 'none';
 
 

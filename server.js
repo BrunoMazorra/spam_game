@@ -24,6 +24,9 @@ function createAppServer() {
   };
 
   app.use(express.static('public'));
+  app.get('/api/public-rooms', (_req, res) => {
+    res.json({ rooms: roomStore.listPublicRooms() });
+  });
   app.get(['/room/:roomId', '/room/:roomId/*'], (_req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
