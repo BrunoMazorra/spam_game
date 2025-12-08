@@ -1,6 +1,12 @@
 /* global io */
 
-const socket = io();
+// Allow overriding socket origin for deployments where the static site and
+// Socket.IO server are on different hosts (e.g., Vercel static + separate Node).
+// Set window.SOCKET_URL = 'https://your-socket-host' before loading this script.
+const SOCKET_URL = window.SOCKET_URL || window.__SOCKET_URL__ || undefined;
+const socket = io(SOCKET_URL, {
+  transports: ['websocket', 'polling']
+});
 
 // Elements
 const $host = document.getElementById('host');
@@ -35,7 +41,7 @@ const $countdownLabel = document.getElementById('countdownLabel');
 const $myPoints = document.getElementById('myPoints');
 const $countdownDisplay = document.createElement('div');
 $countdownDisplay.id = 'countdownDisplay';
-$countdownDisplay.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(60px, 20vw, 120px); font-weight: 700; color: #4f46e5; text-shadow: 0 0 20px rgba(79, 70, 229, 0.5); z-index: 1000; pointer-events: none; display: none; font-family: Inter, system-ui, sans-serif;';
+$countdownDisplay.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(60px, 20vw, 120px); font-weight: 700; color: #00ff9a; text-shadow: 0 0 24px rgba(0, 255, 154, 0.6); z-index: 1000; pointer-events: none; display: none; font-family: Inter, system-ui, sans-serif;';
 document.body.appendChild($countdownDisplay);
 
 const $reveal = document.getElementById('reveal');
@@ -54,7 +60,7 @@ let gameTimes = { startedAt: 0, revealAt: 0 };
 let countdownTimer = null;
 let myPoints = [];
 let myId = null;
-let myColor = '#4f46e5';
+let myColor = '#00ff9a';
 let roundInfo = { current: 0, total: 0 };
 let isHost = false;
 let inviteUrl = '';
@@ -72,20 +78,17 @@ function show(section) {
   $results.style.display = section === 'results' ? 'block' : 'none';
 
   if ($navHost && $navJoin) {
-    $navHost.classList.remove('primary');
-    $navJoin.classList.remove('primary');
-    $navHost.style.background = '#0f1320';
-    $navHost.style.borderColor = '#2a2f3a';
-    $navJoin.style.background = '#0f1320';
-    $navJoin.style.borderColor = '#2a2f3a';
+    $navHost.classList.remove('primary', 'is-active');
+    $navJoin.classList.remove('primary', 'is-active');
+    $navHost.classList.add('ghost');
+    $navJoin.classList.add('ghost');
+
     if (section === 'host') {
-      $navHost.classList.add('primary');
-      $navHost.style.background = '';
-      $navHost.style.borderColor = '';
+      $navHost.classList.add('primary', 'is-active');
+      $navHost.classList.remove('ghost');
     } else if (section === 'join') {
-      $navJoin.classList.add('primary');
-      $navJoin.style.background = '';
-      $navJoin.style.borderColor = '';
+      $navJoin.classList.add('primary', 'is-active');
+      $navJoin.classList.remove('ghost');
     }
   }
 }
@@ -166,7 +169,7 @@ function clearCanvas(ctx) {
 }
 
 function drawAxis(ctx, width, height) {
-  ctx.strokeStyle = '#263042';
+  ctx.strokeStyle = 'rgba(0, 255, 154, 0.35)';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(20, height - 30);
@@ -174,7 +177,7 @@ function drawAxis(ctx, width, height) {
   ctx.stroke();
   // ticks 0, 0.5, 1
   const ticks = [0, 0.5, 1];
-  ctx.fillStyle = '#9aa4b2';
+  ctx.fillStyle = '#9fb3c8';
   const fontSize = Math.max(10, Math.min(12, width / 80));
   ctx.font = `${fontSize}px Inter, sans-serif`;
   for (const t of ticks) {
@@ -182,7 +185,7 @@ function drawAxis(ctx, width, height) {
     ctx.beginPath();
     ctx.moveTo(x, height - 30);
     ctx.lineTo(x, height - 36);
-    ctx.strokeStyle = '#263042';
+    ctx.strokeStyle = 'rgba(0, 255, 154, 0.25)';
     ctx.stroke();
     ctx.fillText(String(t), x - 6, height - 12);
   }
