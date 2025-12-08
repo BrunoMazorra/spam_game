@@ -707,14 +707,9 @@ socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds,
   $winnerLabel.textContent = winner ? `Winner: ${displayName(winner.name, winner.emoji)} (payoff: ${winner.payoff.toFixed(4)})` : 'No winner (no submissions)';
   roundInfo = { current: currentRound || roundInfo.current, total: totalRounds || roundInfo.total };
   $roundLabel.textContent = `${roundInfo.current}/${roundInfo.total}`;
-  if (roundInfo.current < roundInfo.total) {
-    $nextRoundBtn.style.display = 'inline-block';
-    $nextRoundBtn.disabled = false;
-    $readyStatus.textContent = '';
-  } else {
-    $nextRoundBtn.style.display = 'none';
-    $readyStatus.textContent = 'Match finished.';
-  }
+  // Single-game mode: always finished after first results
+  if ($nextRoundBtn) $nextRoundBtn.style.display = 'none';
+  if ($readyStatus) $readyStatus.textContent = 'Match finished.';
   show('results');
   console.log('Results view displayed');
 });
@@ -803,5 +798,8 @@ if (initialRoom) {
   show('host');
 }
 renderBoard();
+
+// Single-game mode: hide next-round UI
+if ($nextRoundBtn) $nextRoundBtn.style.display = 'none';
 
 

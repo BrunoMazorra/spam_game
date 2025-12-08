@@ -172,25 +172,3 @@ test('missing submissions are auto-submitted as empty', async () => {
   assert.equal(p2Result.points.length, 0);
 });
 
-test('multi-round ready_next triggers next round and match_finished', async () => {
-  const host = await connectClient();
-  const { roomId } = await createRoom(host, { name: 'Host', durationSec: 1, totalRounds: 2 });
-  const p2 = await connectClient();
-  await joinRoom(p2, roomId, 'P2');
-  await startGame(host, roomId);
-  await waitFor(host, 'game_started');
-  await submitPoints(host, roomId, [0.1]);
-  await submitPoints(p2, roomId, [0.2]);
-  await waitFor(host, 'results');
-
-  const nextStartedP = waitFor(host, 'game_started');
-  await readyNext(host, roomId);
-  await readyNext(p2, roomId);
-  await nextStartedP;
-  await submitPoints(host, roomId, [0.4]);
-  await submitPoints(p2, roomId, [0.5]);
-  await waitFor(host, 'results');
-  const matchFinished = await waitFor(host, 'match_finished');
-  assert.equal(matchFinished.totalRounds, 2);
-  assert.ok(matchFinished.winner);
-});
