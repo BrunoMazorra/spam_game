@@ -41,7 +41,7 @@ const $countdownLabel = document.getElementById('countdownLabel');
 const $myPoints = document.getElementById('myPoints');
 const $countdownDisplay = document.createElement('div');
 $countdownDisplay.id = 'countdownDisplay';
-$countdownDisplay.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(60px, 20vw, 120px); font-weight: 700; color: #00ff9a; text-shadow: 0 0 24px rgba(0, 255, 154, 0.6); z-index: 1000; pointer-events: none; display: none; font-family: Inter, system-ui, sans-serif;';
+$countdownDisplay.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(60px, 20vw, 120px); font-weight: 700; color: #ff4b4b; text-shadow: 0 0 24px rgba(255, 75, 75, 0.6); z-index: 1000; pointer-events: none; display: none; font-family: Inter, system-ui, sans-serif;';
 document.body.appendChild($countdownDisplay);
 
 const $reveal = document.getElementById('reveal');
@@ -51,6 +51,7 @@ const $backToLobbyBtn = document.getElementById('backToLobbyBtn');
 const $roundLabel = document.getElementById('roundLabel');
 const $nextRoundBtn = document.getElementById('nextRoundBtn');
 const $readyStatus = document.getElementById('readyStatus');
+const $resultsLegend = document.getElementById('resultsLegend');
 
 // State
 let myName = '';
@@ -60,7 +61,7 @@ let gameTimes = { startedAt: 0, revealAt: 0 };
 let countdownTimer = null;
 let myPoints = [];
 let myId = null;
-let myColor = '#00ff9a';
+let myColor = '#ff4b4b';
 let roundInfo = { current: 0, total: 0 };
 let isHost = false;
 let inviteUrl = '';
@@ -169,7 +170,7 @@ function clearCanvas(ctx) {
 }
 
 function drawAxis(ctx, width, height) {
-  ctx.strokeStyle = 'rgba(0, 255, 154, 0.35)';
+  ctx.strokeStyle = 'rgba(255, 212, 71, 0.32)';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(20, height - 30);
@@ -185,7 +186,7 @@ function drawAxis(ctx, width, height) {
     ctx.beginPath();
     ctx.moveTo(x, height - 30);
     ctx.lineTo(x, height - 36);
-    ctx.strokeStyle = 'rgba(0, 255, 154, 0.25)';
+    ctx.strokeStyle = 'rgba(255, 212, 71, 0.25)';
     ctx.stroke();
     ctx.fillText(String(t), x - 6, height - 12);
   }
@@ -559,6 +560,22 @@ socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds,
   // Ensure we're showing results view
   console.log('Switching to results view');
   renderReveal(results);
+  if ($resultsLegend) {
+    $resultsLegend.innerHTML = '';
+    for (const r of results) {
+      const row = document.createElement('div');
+      row.className = 'legend-item';
+      const dot = document.createElement('div');
+      dot.className = 'legend-dot';
+      dot.style.background = r.color;
+      dot.style.borderColor = r.color;
+      const text = document.createElement('div');
+      text.textContent = `${r.name}: ${r.points.length} pts • payoff ${r.payoff.toFixed(4)}`;
+      row.appendChild(dot);
+      row.appendChild(text);
+      $resultsLegend.appendChild(row);
+    }
+  }
   // table
   $resultsBody.innerHTML = '';
   if (Array.isArray(totals) && totals.length) {
