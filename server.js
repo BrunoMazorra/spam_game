@@ -542,6 +542,8 @@ function endGame(roomId) {
     console.log(`[Room ${roomId}] Cannot end game - status is ${room?.status || 'room not found'}`);
     return;
   }
+  // Ensure host record exists before processing submissions and scoring
+  ensureHostPlayer(room);
   // Clear the timer
   if (room.timer) {
     clearTimeout(room.timer);
@@ -560,6 +562,8 @@ function endGame(roomId) {
       console.log(`[Room ${roomId}] Room status changed during delay, aborting`);
       return;
     }
+    // Ensure host is present before forcing submissions and scoring
+    ensureHostPlayer(finalRoom);
     
     console.log(`[Room ${roomId}] After delay - Current submissions:`, Array.from(finalRoom.submissions.entries()).map(([id, pts]) => ({ playerId: id, playerName: finalRoom.players.get(id)?.name, points: pts.length })));
     
