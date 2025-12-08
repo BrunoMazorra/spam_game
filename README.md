@@ -1,6 +1,6 @@
 # Spam Game
 
-Real-time multiplayer web game where players place points on the segment [0,1] under a time limit. Each point costs c. After the timer, all points are revealed and each interval belongs to the owner of its left endpoint. Payoff = total owned area − c × (#points). Highest payoff wins.
+Lightweight real-time multiplayer web game where players place points on the segment [0,1] under a timer and compete for interval area. Each point costs c; payoff is owned area minus point costs—highest payoff wins.
 
 ## Quick start
 
@@ -12,6 +12,11 @@ npm run start
 ```
 
 Open in two or more browser windows/tabs to simulate multiple players.
+
+## Features
+- Room creation/join by code with adjustable timer and cost.
+- Canvas-based board with live point placement/removal.
+- Real-time scoring and reveal via Socket.IO.
 
 ## Rules and scoring
 - Players choose any number of points in [0, 1] during the round (default 60s).
@@ -35,5 +40,3 @@ Open in two or more browser windows/tabs to simulate multiple players.
 ## Notes
 - This prototype stores game state in memory and is intended for small rooms.
 - If you need persistence, auth, or larger scale, add a database and session auth.
-
-
