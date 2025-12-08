@@ -453,9 +453,31 @@ $board.addEventListener('click', (e) => {
       myPoints.sort((a, b) => a - b);
       updateMyPointsUI();
       renderBoard();
+      flashCost(e.clientX, e.clientY);
     }
   }
 });
+
+function flashCost(clientX, clientY) {
+  const el = document.createElement('div');
+  el.className = 'cost-flash';
+  el.textContent = '-$1';
+  el.style.left = `${clientX}px`;
+  el.style.top = `${clientY}px`;
+  el.style.transform = 'translate(-50%, -50%) translateY(0px)';
+  document.body.appendChild(el);
+  requestAnimationFrame(() => {
+    el.style.opacity = '1';
+    el.style.transform = 'translate(-50%, -50%) translateY(-8px)';
+  });
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translate(-50%, -50%) translateY(-16px)';
+    setTimeout(() => {
+      el.remove();
+    }, 180);
+  }, 250);
+}
 
 // Socket listeners
 socket.on('lobby', ({ roomId: rid, players, settings: s }) => {
