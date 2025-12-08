@@ -126,36 +126,33 @@ function playSlotClickSound() {
   if (ctx.state === 'suspended') ctx.resume();
   const now = ctx.currentTime;
 
-  // Metallic "ker-ching" sweep like a slot payout bell.
-  const body = ctx.createOscillator();
-  const bodyGain = ctx.createGain();
-  body.type = 'triangle';
-  body.frequency.setValueAtTime(420, now);
-  body.frequency.exponentialRampToValueAtTime(1250, now + 0.08);
-  body.frequency.exponentialRampToValueAtTime(780, now + 0.22); // rise then settle
-  bodyGain.gain.setValueAtTime(0.5, now);
-  bodyGain.gain.exponentialRampToValueAtTime(0.18, now + 0.16);
-  bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+  // Cash-register style "ka-ching": drawer thunk + twin bells.
+  const thunk = ctx.createOscillator();
+  const thunkGain = ctx.createGain();
+  thunk.type = 'sine';
+  thunk.frequency.setValueAtTime(140, now);
+  thunk.frequency.exponentialRampToValueAtTime(90, now + 0.08);
+  thunkGain.gain.setValueAtTime(0.38, now);
+  thunkGain.gain.exponentialRampToValueAtTime(0.08, now + 0.14);
+  thunkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
 
-  // High chime for the coin sparkle.
-  const chime = ctx.createOscillator();
-  const chimeGain = ctx.createGain();
-  chime.type = 'square';
-  chime.frequency.setValueAtTime(1600, now + 0.02);
-  chime.frequency.exponentialRampToValueAtTime(2200, now + 0.14);
-  chimeGain.gain.setValueAtTime(0.42, now + 0.02);
-  chimeGain.gain.exponentialRampToValueAtTime(0.14, now + 0.16);
-  chimeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+  const bell1 = ctx.createOscillator();
+  const bell1Gain = ctx.createGain();
+  bell1.type = 'triangle';
+  bell1.frequency.setValueAtTime(520, now + 0.02);
+  bell1.frequency.exponentialRampToValueAtTime(980, now + 0.14);
+  bell1Gain.gain.setValueAtTime(0.42, now + 0.02);
+  bell1Gain.gain.exponentialRampToValueAtTime(0.16, now + 0.18);
+  bell1Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
 
-  // Low thunk to feel the coin drop.
-  const thump = ctx.createOscillator();
-  const thumpGain = ctx.createGain();
-  thump.type = 'sine';
-  thump.frequency.setValueAtTime(180, now);
-  thump.frequency.exponentialRampToValueAtTime(120, now + 0.08);
-  thumpGain.gain.setValueAtTime(0.32, now);
-  thumpGain.gain.exponentialRampToValueAtTime(0.05, now + 0.12);
-  thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+  const bell2 = ctx.createOscillator();
+  const bell2Gain = ctx.createGain();
+  bell2.type = 'square';
+  bell2.frequency.setValueAtTime(1180, now + 0.16);
+  bell2.frequency.exponentialRampToValueAtTime(1550, now + 0.28);
+  bell2Gain.gain.setValueAtTime(0.32, now + 0.16);
+  bell2Gain.gain.exponentialRampToValueAtTime(0.12, now + 0.3);
+  bell2Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.46);
 
   const noise = ctx.createBufferSource();
   const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate);
@@ -165,27 +162,27 @@ function playSlotClickSound() {
     data[i] = (Math.random() * 2 - 1) * (1 - t);
   }
   const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.18, now);
-  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+  noiseGain.gain.setValueAtTime(0.14, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
   noise.buffer = buffer;
   noise.connect(noiseGain);
   noiseGain.connect(clickAudioBus);
 
-  body.connect(bodyGain);
-  bodyGain.connect(clickAudioBus);
-  chime.connect(chimeGain);
-  chimeGain.connect(clickAudioBus);
-  thump.connect(thumpGain);
-  thumpGain.connect(clickAudioBus);
+  thunk.connect(thunkGain);
+  thunkGain.connect(clickAudioBus);
+  bell1.connect(bell1Gain);
+  bell1Gain.connect(clickAudioBus);
+  bell2.connect(bell2Gain);
+  bell2Gain.connect(clickAudioBus);
 
-  body.start(now);
-  body.stop(now + 0.5);
-  chime.start(now + 0.02);
-  chime.stop(now + 0.36);
-  thump.start(now);
-  thump.stop(now + 0.32);
+  thunk.start(now);
+  thunk.stop(now + 0.28);
+  bell1.start(now + 0.02);
+  bell1.stop(now + 0.36);
+  bell2.start(now + 0.16);
+  bell2.stop(now + 0.5);
   noise.start(now);
-  noise.stop(now + 0.24);
+  noise.stop(now + 0.22);
 }
 
 function playWinnerJingle() {
