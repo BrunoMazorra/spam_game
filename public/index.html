@@ -139,19 +139,20 @@
         box-shadow: 0 0 12px rgba(0,255,154,0.9);
       }
       h1 {
-        margin: 12px 0 8px 0;
+        margin: 10px 0 6px 0;
         font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
         font-weight: 700;
-        font-size: 32px;
-        letter-spacing: -0.3px;
+        font-size: 31px;
+        letter-spacing: -0.25px;
         color: var(--heading);
       }
       .lede {
-        margin: 0 0 20px 0;
+        margin: 0 0 16px 0;
         color: var(--muted);
         max-width: 720px;
-        line-height: 1.68;
-        font-size: 16px;
+        line-height: 1.6;
+        font-size: 15px;
+        font-weight: 500;
       }
       .hero-actions {
         display: flex;
@@ -433,12 +434,12 @@
         <div class="hero-head">
           <div class="eyebrow">Flashbots experiment</div>
           <h1>Spam Game</h1>
-          <p class="lede">Host a room, ready with others, place points while the line sweeps, then reveal payouts.</p>
+          <p class="lede">Host a room, ready together, place points as the line sweeps, then reveal payouts.</p>
           <div class="hero-actions">
             <button id="navHost" class="primary nav-pill">Host a room</button>
             <button id="navJoin" class="ghost nav-pill">Join a room</button>
           </div>
-          <div class="muted" style="margin-top:10px;">One-liner: Pay 1¢ per click to claim slices of the 0–1 line; highest area minus costs wins.</div>
+          <div class="muted" style="margin-top:10px;">Pay 1¢ per click to claim slices of the 0–1 line; highest area minus costs wins.</div>
         </div>
       </header>
       <div class="card surface">
@@ -449,7 +450,7 @@
             <div class="flow-step"><span class="step-num">3</span><span>Play</span></div>
             <div class="flow-step"><span class="step-num">4</span><span>Reveal</span></div>
           </div>
-          <span class="muted" style="flex:1; text-align:right;">Simple four-step flow. Keep everyone synced.</span>
+          <span class="muted" style="flex:1; text-align:right;">Flow: set, ready, click, reveal.</span>
         </div>
 
         <!-- Host page: create rules and copy a share link -->
@@ -489,7 +490,7 @@
                 </div>
               </div>
               <div class="row">
-                <div class="grow">
+                <div class="grow stack">
                   <div class="muted">Join room</div>
                   <input id="roomInput" placeholder="Room code or invite link" />
                 </div>
@@ -572,7 +573,7 @@
                 <tbody id="resultsBody"></tbody>
               </table>
             </div>
-            <div class="side-card"><strong>Next steps</strong><br/>Check payouts, then ready up for the next round or return to the lobby.</div>
+            <div class="side-card"><strong>Next steps</strong><br/>Review payouts, then ready for the next round or return to lobby.</div>
           </div>
         </div>
       </div>
