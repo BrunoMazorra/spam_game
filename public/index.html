@@ -68,9 +68,9 @@
       .wrap {
         position: relative;
         z-index: 1;
-        max-width: 1080px;
+        max-width: 1024px;
         margin: 0 auto;
-        padding: 32px 20px calc(64px + env(safe-area-inset-bottom, 0));
+        padding: clamp(24px, 4vw, 32px) clamp(16px, 4vw, 28px) 64px;
       }
       .masthead {
         display: flex;
@@ -109,7 +109,7 @@
         background: linear-gradient(150deg, var(--panel), var(--panel-2));
         border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: var(--r-lg);
-        padding: 22px 20px;
+        padding: 20px 18px;
         box-shadow: var(--shadow);
         backdrop-filter: blur(12px);
         transition: transform var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast);
@@ -268,7 +268,7 @@
       }
       .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
       .row.tight { gap: 8px; }
-      .stack { display: flex; flex-direction: column; gap: 10px; }
+      .stack { display: flex; flex-direction: column; gap: 12px; }
       .grow { flex: 1; min-width: 0; }
       input, button, select {
         border-radius: var(--r-sm);
@@ -354,9 +354,13 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 11px 12px;
+        padding: 12px 14px;
+        border-radius: var(--r-sm);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.28);
+        border: 1px solid rgba(255,255,255,0.06);
       }
-      #publicRoomsList { max-height: 260px; overflow-y: auto; }
+      .public-room + .public-room { margin-top: 8px; }
+      #publicRoomsList { max-height: 260px; overflow-y: auto; gap: 8px; }
       #publicRoomsList::-webkit-scrollbar { width: 6px; }
       #publicRoomsList::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
       canvas {
@@ -369,6 +373,7 @@
         touch-action: none;
         box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
         position: relative;
+        margin: 6px 0 14px;
       }
       table { width: 100%; border-collapse: collapse; font-size: 13px; }
       th, td { padding: 11px 8px; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; }
@@ -435,8 +440,8 @@
       }
       .section {
         display: grid;
-        grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr);
-        gap: 20px;
+        grid-template-columns: minmax(0, 1.8fr) minmax(260px, 1fr);
+        gap: 16px;
         align-items: start;
       }
       .section .side-card {
@@ -489,7 +494,7 @@
       /* Mobile optimizations */
       @media (max-width: 900px) {
         .hero-panel { padding: 18px; }
-        .wrap { padding: 28px 18px 56px; }
+        .wrap { padding: 24px 18px calc(56px + env(safe-area-inset-bottom, 0)); }
         h1 { font-size: 30px; }
         .hero-title { font-size: 34px; }
         .nav-row { align-items: flex-start; }
@@ -497,7 +502,7 @@
       @media (max-width: 720px) {
         .hero-actions { gap: 8px; }
         .nav-row { gap: 8px; }
-        .wrap { padding: 20px 14px 48px; }
+        .wrap { padding: 20px 14px calc(48px + env(safe-area-inset-bottom, 0)); }
         canvas { height: 180px; }
         table { font-size: 12px; }
         .section { gap: 14px; }
