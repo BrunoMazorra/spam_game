@@ -96,14 +96,15 @@ function createAppServer() {
       cb?.({ ok: true });
     });
 
-    socket.on('submit_points', ({ roomId, points }, cb) => {
-      const res = lifecycle.recordSubmission(roomId, socket.id, points);
+    socket.on('submit_points', ({ roomId, points, clientSentAt }, cb) => {
+      const res = lifecycle.recordSubmission(roomId, socket.id, points, clientSentAt);
       log('submit_points', {
         roomId,
         socketId: socket.id,
         ok: res?.ok,
         error: res?.error,
-        points: Array.isArray(points) ? points.length : 0
+        points: Array.isArray(points) ? points.length : 0,
+        clientSentAt
       });
       cb?.(res);
       if (res.ok) {

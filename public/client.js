@@ -342,11 +342,12 @@ function submitPoints() {
     return;
   }
   hasSubmitted = true;
-  console.log('Submitting points:', myPoints, 'to room:', roomId);
+  const clientSentAt = Date.now();
+  console.log('Submitting points:', myPoints, 'to room:', roomId, 'at', clientSentAt);
   // Ensure roomId is sent as string, especially for room "0"
   const submitRoomId = roomId.toString().trim();
   console.log('Sending submit_points with roomId:', submitRoomId);
-  socket.emit('submit_points', { roomId: submitRoomId, points: myPoints }, (res) => {
+  socket.emit('submit_points', { roomId: submitRoomId, points: myPoints, clientSentAt }, (res) => {
     if (!res?.ok) {
       console.error('Submit failed:', res?.error);
       setError(res?.error || 'Submit failed');
@@ -378,7 +379,8 @@ function setCountdown() {
       submittedThisRound = true;
       // Make a copy of points to ensure we submit what we have
       const pointsToSubmit = [...myPoints];
-      console.log('Auto-submitting points:', pointsToSubmit, 'Progress:', progress, 'LeftMs:', leftMs, 'RoomId:', roomId);
+      const clientSentAt = Date.now();
+      console.log('Auto-submitting points:', pointsToSubmit, 'Progress:', progress, 'LeftMs:', leftMs, 'RoomId:', roomId, 'at', clientSentAt);
       
       // Submit directly without going through submitPoints to avoid hasSubmitted check
       if (!roomId) {
@@ -387,8 +389,8 @@ function setCountdown() {
       }
       hasSubmitted = true;
       const submitRoomId = roomId.toString().trim();
-      console.log('Sending submit_points with roomId:', submitRoomId, 'points:', pointsToSubmit);
-      socket.emit('submit_points', { roomId: submitRoomId, points: pointsToSubmit }, (res) => {
+      console.log('Sending submit_points with roomId:', submitRoomId, 'points:', pointsToSubmit, 'at', clientSentAt);
+      socket.emit('submit_points', { roomId: submitRoomId, points: pointsToSubmit, clientSentAt }, (res) => {
         if (!res?.ok) {
           console.error('Submit failed:', res?.error);
           setError(res?.error || 'Submit failed');
