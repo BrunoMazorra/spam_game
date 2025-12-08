@@ -80,6 +80,7 @@ let roundInfo = { current: 0, total: 0 };
 let isHost = false;
 let inviteUrl = '';
 let lastReadyCounts = { ready: 0, total: 0 };
+let lastKnownRoomId = '';
 
 function setError(message) {
   if (!$errorBar) return;
@@ -94,6 +95,25 @@ function setError(message) {
 
 socket.on('connect', () => {
   myId = socket.id;
+  if (roomId) {
+    lastKnownRoomId = roomId;
+  }
+  if (lastKnownRoomId) {
+    joinRoomById(lastKnownRoomId, { silent: true });
+  }
+  setError('');
+});
+
+socket.io.on('reconnect_attempt', () => {
+  setError('Reconnecting...');
+});
+
+socket.on('disconnect', (reason) => {
+  setError(reason ? `Disconnected: ${reason}` : 'Disconnected. Reconnecting...');
+});
+
+socket.on('connect_error', (err) => {
+  setError(err?.message || 'Connection error. Retrying...');
 });
 
 function show(section) {
@@ -194,6 +214,7 @@ function applyRoomToUrl(id) {
 function setRoomContext(rid, s) {
   if (rid) {
     roomId = rid;
+    lastKnownRoomId = rid;
     lastReadyCounts = { ready: 0, total: 0 };
     updateInviteLink(roomId);
     applyRoomToUrl(roomId);
@@ -387,7 +408,11 @@ function joinRoomById(rid, { silent = false } = {}) {
   isHost = false;
   socket.emit('join_room', { roomId: targetId, name: myName }, (res) => {
     if (!res?.ok) {
-      if (!silent) setError(res?.error || 'Failed to join');
+      if (!silent) {
+        setError(res?.error || 'Failed to join');
+      } else {
+        setError(res?.error || 'Room not found or expired. Please create or join again.');
+      }
       return;
     }
     setError('');

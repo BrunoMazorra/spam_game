@@ -39,6 +39,7 @@ function createAppServer() {
       if (!room) {
         return cb?.({ ok: false, error: 'Unable to create room (ID collision or game in progress).' });
       }
+      log('room_created', { socketId: socket.id, roomId: room.id, status: room.status, players: room.players.size });
       socket.join(room.id);
       cb?.({ ok: true, roomId: room.id, settings: room.settings });
       lifecycle.emitLobby(room.id);
