@@ -19,7 +19,7 @@ Open in two or more browser windows/tabs to simulate multiple players.
 - Real-time scoring and reveal via Socket.IO.
 
 ## Rules and scoring
-- Players choose any number of points in [0, 1] during the round (default 60s).
+- Players choose any number of points in [0, 1] during the round (default 10s).
 - Each point costs c (default 0.05).
 - After reveal, sort all submitted points across all players.
 - For each consecutive pair of points (x_i, x_{i+1}), the interval [x_i, x_{i+1}) is owned by the player who owns x_i.
@@ -29,7 +29,7 @@ Open in two or more browser windows/tabs to simulate multiple players.
 ## Creating/Joining a room
 - Enter a name and click Create Room (optionally adjust cost c and duration).
 - Share the room code with others; they can Join by code and name.
-- The host clicks Start Round to begin the 60s timer.
+- The host clicks Start Round to begin the timer (default 10s unless changed).
 - During the round, click on the board to add points; click near a point to remove it.
 - Click Submit to lock your points (auto-locked at time expiry).
 

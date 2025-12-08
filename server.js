@@ -50,17 +50,19 @@ function nowMs() {
 function createRoom({ hostSocketId, hostName, costPerPoint, durationSec, totalRounds, preferredId }) {
   const preferred = normalizeRoomId(preferredId);
   const id = preferred || generateRoomId();
+  const resolvedHostName = hostName || 'Host';
   const room = {
     id,
     createdAt: nowMs(),
     hostSocketId,
+    hostName: resolvedHostName,
     settings: {
       costPerPoint: Number(costPerPoint ?? 0.05),
       durationSec: Number(durationSec ?? 10),
       totalRounds: Number(totalRounds ?? 2)
     },
     status: 'lobby', // lobby | running | revealed | finished
-    // playerId => { id, name, color, socketId, submittedAt?, points? }
+    // playerId => { id, name, color, emoji, socketId, submittedAt?, points? }
     players: new Map(),
     // submission cache during running phase: playerId => [numbers]
     submissions: new Map(),
@@ -68,6 +70,7 @@ function createRoom({ hostSocketId, hostName, costPerPoint, durationSec, totalRo
     revealAt: undefined,
     timer: undefined,
     countdownInterval: undefined,
+    finishTimer: undefined,
     currentRound: 0,
     totals: new Map(),
     readyNext: new Set()
@@ -75,14 +78,7 @@ function createRoom({ hostSocketId, hostName, costPerPoint, durationSec, totalRo
   rooms.set(id, room);
   // add host as first player
   const hostId = hostSocketId;
-  const hostColor = pickColor(room.players.size);
-  room.players.set(hostId, {
-    id: hostId,
-    name: hostName || 'Host',
-    color: hostColor,
-    socketId: hostSocketId
-  });
-  room.totals.set(hostId, 0);
+  ensurePlayerRecord(room, hostId, { name: resolvedHostName, socketId: hostSocketId });
   return room;
 }
 
@@ -94,7 +90,8 @@ function getOrCreateRoom0() {
     room = {
       id: DEV_ROOM_ID,
       createdAt: nowMs(),
-      hostSocketId: null,
+    hostSocketId: null,
+    hostName: 'Host',
       settings: {
         costPerPoint: 0.05,
         durationSec: 10,
@@ -107,6 +104,7 @@ function getOrCreateRoom0() {
       revealAt: undefined,
       timer: undefined,
       countdownInterval: undefined,
+      finishTimer: undefined,
       currentRound: 0,
       totals: new Map(),
       readyNext: new Set()
@@ -128,6 +126,13 @@ function getOrCreateRoom0() {
       clearInterval(room.countdownInterval);
       room.countdownInterval = undefined;
     }
+    if (room.finishTimer) {
+      clearTimeout(room.finishTimer);
+      room.finishTimer = undefined;
+    }
+  }
+  if (!room.hostName) {
+    room.hostName = 'Host';
   }
   return room;
 }
@@ -150,6 +155,43 @@ function pickColor(index) {
     '#808000', '#ffd8b1', '#000080', '#808080', '#FFFFFF', '#000000'
   ];
   return palette[index % palette.length];
+}
+
+const PLAYER_EMOJIS = ['🐱', '🐶', '🦊', '🐼', '🐸', '🐵', '🐧', '🦄', '🐯', '🐰', '🐙', '🐝', '🐢', '🐞', '🦁', '🦉'];
+
+function pickEmoji(room) {
+  const used = new Set(Array.from(room.players.values()).map((p) => p.emoji).filter(Boolean));
+  const pool = PLAYER_EMOJIS.filter((e) => !used.has(e));
+  const base = pool.length > 0 ? pool : PLAYER_EMOJIS;
+  return base[Math.floor(Math.random() * base.length)];
+}
+
+function ensurePlayerRecord(room, playerId, { name, socketId } = {}) {
+  if (!room || !playerId) return null;
+  if (!room.players.has(playerId)) {
+    const color = pickColor(room.players.size);
+    const emoji = pickEmoji(room);
+    const resolvedName = name || (playerId === room.hostSocketId ? room.hostName || 'Host' : 'Player');
+    room.players.set(playerId, {
+      id: playerId,
+      name: resolvedName,
+      color,
+      emoji,
+      socketId: socketId || playerId
+    });
+  } else {
+    const player = room.players.get(playerId);
+    if (!player.emoji) {
+      player.emoji = pickEmoji(room);
+    }
+  }
+  room.totals.set(playerId, room.totals.get(playerId) || 0);
+  return room.players.get(playerId);
+}
+
+function ensureHostPlayer(room) {
+  if (!room || !room.hostSocketId) return null;
+  return ensurePlayerRecord(room, room.hostSocketId, { name: room.hostName || 'Host', socketId: room.hostSocketId });
 }
 
 function sanitizePoints(raw) {
@@ -203,6 +245,7 @@ function computeResults(room) {
       playerId,
       name: player.name,
       color: player.color,
+      emoji: player.emoji,
       points: pts,
       area,
       cost: costPaid,
@@ -255,12 +298,11 @@ io.on('connection', (socket) => {
       console.log(`[Join Room] Room "${requestedRoomId}" not found`);
       return cb?.({ ok: false, error: 'Room not found' });
     }
+    ensureHostPlayer(room);
     if (room.status !== 'lobby') return cb?.({ ok: false, error: 'Game already started' });
     if (room.players.has(socket.id)) return cb?.({ ok: true, roomId: room.id, settings: room.settings });
 
-    const color = pickColor(room.players.size);
-    room.players.set(socket.id, { id: socket.id, name: name || 'Player', color, socketId: socket.id });
-    room.totals.set(socket.id, room.totals.get(socket.id) || 0);
+    ensurePlayerRecord(room, socket.id, { name: name || 'Player', socketId: socket.id });
     socket.join(room.id);
     console.log(`[Join Room] Player ${socket.id} (${name || 'Player'}) joined room "${room.id}"`);
     cb?.({ ok: true, roomId: room.id, settings: room.settings });
@@ -274,6 +316,7 @@ io.on('connection', (socket) => {
   socket.on('ready_to_start', ({ roomId }, cb) => {
     const room = getRoomById(roomId);
     if (!room) return cb?.({ ok: false, error: 'Room not found' });
+    ensureHostPlayer(room);
     if (room.status !== 'lobby') {
       console.log(`[Room ${room.id}] Player ${socket.id} tried to ready but status is ${room.status}`);
       return cb?.({ ok: false, error: 'Not in lobby' });
@@ -300,6 +343,7 @@ io.on('connection', (socket) => {
       console.log(`[Room ${roomId}] Room not found in startGameRound`);
       return;
     }
+    ensureHostPlayer(room);
     if (room.status !== 'lobby') {
       console.log(`[Room ${room.id}] Cannot start game - status is ${room.status}, not lobby`);
       return;
@@ -309,6 +353,10 @@ io.on('connection', (socket) => {
     if (room.timer) {
       clearTimeout(room.timer);
       room.timer = undefined;
+    }
+    if (room.finishTimer) {
+      clearTimeout(room.finishTimer);
+      room.finishTimer = undefined;
     }
     if (room.countdownInterval) {
       clearInterval(room.countdownInterval);
@@ -378,6 +426,10 @@ io.on('connection', (socket) => {
       console.log(`[Submit Points] Room ${room.id} status is ${room.status}, not accepting submissions`);
       return cb?.({ ok: false, error: 'Not accepting submissions' });
     }
+    if (!room.players.has(socket.id) && room.hostSocketId === socket.id) {
+      console.log(`[Submit Points] Host socket ${socket.id} missing from players map; re-adding host record`);
+      ensureHostPlayer(room);
+    }
     if (!room.players.has(socket.id)) {
       console.log(`[Submit Points] Socket ${socket.id} not in room ${room.id}. Players:`, Array.from(room.players.keys()));
       return cb?.({ ok: false, error: 'Not in room' });
@@ -430,6 +482,7 @@ io.on('connection', (socket) => {
   socket.on('ready_next', ({ roomId }, cb) => {
     const room = getRoomById(roomId);
     if (!room) return cb?.({ ok: false, error: 'Room not found' });
+    ensureHostPlayer(room);
     // Accept late clicks gracefully: if already running, acknowledge and return
     if (room.status === 'running') return cb?.({ ok: true, info: 'Round already started' });
     if (room.status !== 'revealed') return cb?.({ ok: false, error: 'Not in revealed state' });
@@ -439,7 +492,7 @@ io.on('connection', (socket) => {
     io.to(room.id).emit('ready_status', { readyCount: room.readyNext.size, totalPlayers: room.players.size });
     if (room.readyNext.size >= room.players.size) {
       if (room.currentRound >= room.settings.totalRounds) {
-        const totalsArray = Array.from(room.players.values()).map((p) => ({ playerId: p.id, name: p.name, color: p.color, totalPayoff: room.totals.get(p.id) || 0 }));
+        const totalsArray = Array.from(room.players.values()).map((p) => ({ playerId: p.id, name: p.name, color: p.color, emoji: p.emoji, totalPayoff: room.totals.get(p.id) || 0 }));
         // Determine match winner
         const sorted = [...totalsArray].sort((a, b) => b.totalPayoff - a.totalPayoff);
         const matchWinner = sorted[0] || null;
@@ -453,6 +506,10 @@ io.on('connection', (socket) => {
           clearInterval(room.countdownInterval);
           room.countdownInterval = undefined;
         }
+      if (room.finishTimer) {
+        clearTimeout(room.finishTimer);
+        room.finishTimer = undefined;
+      }
         let countdown = 3;
         io.to(room.id).emit('countdown', { countdown });
         room.countdownInterval = setInterval(() => {
@@ -535,14 +592,22 @@ function endGame(roomId) {
     for (const r of results) {
       finalRoom.totals.set(r.playerId, (finalRoom.totals.get(r.playerId) || 0) + r.payoff);
     }
-    const totalsArray = Array.from(finalRoom.players.values()).map((p) => ({ playerId: p.id, name: p.name, color: p.color, totalPayoff: finalRoom.totals.get(p.id) || 0 }));
+    const totalsArray = Array.from(finalRoom.players.values()).map((p) => ({ playerId: p.id, name: p.name, color: p.color, emoji: p.emoji, totalPayoff: finalRoom.totals.get(p.id) || 0 }));
     console.log(`[Room ${roomId}] Game ended. Round ${finalRoom.currentRound}/${finalRoom.settings.totalRounds}. Results:`, results);
     console.log(`[Room ${roomId}] Final submissions:`, Array.from(finalRoom.submissions.entries()).map(([id, pts]) => ({ playerId: id, playerName: finalRoom.players.get(id)?.name, points: pts.length, pointsArray: pts })));
     io.to(finalRoom.id).emit('results', { results, winner, settings: finalRoom.settings, currentRound: finalRoom.currentRound, totalRounds: finalRoom.settings.totalRounds, totals: totalsArray });
     // Mark finished after a grace period
-    setTimeout(() => {
+    if (finalRoom.finishTimer) {
+      clearTimeout(finalRoom.finishTimer);
+      finalRoom.finishTimer = undefined;
+    }
+    finalRoom.finishTimer = setTimeout(() => {
       const r = rooms.get(roomId);
-      if (r) r.status = 'finished';
+      if (!r) return;
+      // Only auto-finish if still revealed and match is at final round
+      if (r.status === 'revealed' && (r.currentRound || 0) >= (r.settings.totalRounds || 0)) {
+        r.status = 'finished';
+      }
     }, 60_000);
   }, 200); // Small delay to allow pending submissions
 }
@@ -550,7 +615,8 @@ function endGame(roomId) {
 function emitLobby(roomId) {
   const room = rooms.get(roomId);
   if (!room) return;
-  const players = Array.from(room.players.values()).map((p) => ({ id: p.id, name: p.name, color: p.color }));
+  ensureHostPlayer(room);
+  const players = Array.from(room.players.values()).map((p) => ({ id: p.id, name: p.name, color: p.color, emoji: p.emoji }));
   io.to(room.id).emit('lobby', { roomId: room.id, status: room.status, players, settings: room.settings });
 }
 

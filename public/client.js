@@ -98,6 +98,10 @@ function formatPoints(points) {
   return points.map((x) => x.toFixed(3)).join(', ');
 }
 
+function displayName(name, emoji) {
+  return emoji ? `${emoji} ${name}` : name;
+}
+
 function getRoomFromLocation() {
   const url = new URL(window.location.href);
   const parts = url.pathname.split('/').filter(Boolean);
@@ -394,9 +398,17 @@ $copyShareBtn?.addEventListener('click', async () => {
 
 $startBtn.addEventListener('click', () => {
   if (!roomId) return;
-  // Immediately mark as ready when clicked
-  if ($startBtn.textContent === 'Start Round' || $startBtn.textContent.includes('Ready')) {
-    $startBtn.disabled = true;
+  $startBtn.disabled = true;
+  if (isHost) {
+    $startBtn.textContent = 'Starting...';
+    socket.emit('start_game', { roomId }, (res) => {
+      if (res && !res.ok) {
+        alert(res.error || 'Cannot start');
+        $startBtn.disabled = false;
+        $startBtn.textContent = 'Ready / Start';
+      }
+    });
+  } else {
     $startBtn.textContent = 'Ready ✓';
     socket.emit('ready_to_start', { roomId }, (res) => {
       if (res && !res.ok) {
@@ -435,29 +447,28 @@ socket.on('ready_status', ({ readyCount, totalPlayers }) => {
 
 socket.on('match_finished', ({ totals, totalRounds, winner }) => {
   const summary = Array.isArray(totals) && totals.length
-    ? ' | ' + totals.map(t => `${t.name}: ${t.totalPayoff.toFixed(4)}`).join(' | ')
+    ? ' | ' + totals.map(t => `${displayName(t.name, t.emoji)}: ${t.totalPayoff.toFixed(4)}`).join(' | ')
     : '';
-  const winnerText = winner ? ` Winner: ${winner.name} (${winner.totalPayoff.toFixed(4)}).` : '';
+  const winnerText = winner ? ` Winner: ${displayName(winner.name, winner.emoji)} (${winner.totalPayoff.toFixed(4)}).` : '';
   $readyStatus.textContent = `Match finished (${totalRounds} rounds).${winnerText}${summary}`;
   $nextRoundBtn.style.display = 'none';
 });
 
-// Canvas click to add points only (no removal)
 $board.addEventListener('click', (e) => {
-  // Add point at the current red line position
   const linePosition = getCurrentLinePosition();
   if (linePosition !== null) {
     const eps = 0.02; // ~2% of the segment width
-    // Check if there's already a point at the line position
     const existingIdx = myPoints.findIndex((p) => Math.abs(p - linePosition) < eps);
-    if (existingIdx < 0) {
-      // Only add if point doesn't already exist at this position
+    if (existingIdx >= 0) {
+      // Remove if clicking near an existing point
+      myPoints.splice(existingIdx, 1);
+    } else {
       myPoints.push(linePosition);
       myPoints.sort((a, b) => a - b);
-      updateMyPointsUI();
-      renderBoard();
       flashCost(e.clientX, e.clientY);
     }
+    updateMyPointsUI();
+    renderBoard();
   }
 });
 
@@ -468,7 +479,9 @@ function flashCost(clientX, clientY) {
     document.body.appendChild(costFlashEl);
   }
   costFlashCount += 1;
-  costFlashEl.textContent = `-$0.01${costFlashCount > 1 ? ` x${costFlashCount}` : ''}`;
+  const cost = Number(settings.costPerPoint ?? 0.05) || 0;
+  const displayCost = cost.toFixed(2);
+  costFlashEl.textContent = `-$${displayCost}${costFlashCount > 1 ? ` x${costFlashCount}` : ''}`;
   costFlashEl.style.left = `${clientX}px`;
   costFlashEl.style.top = `${clientY}px`;
   costFlashEl.style.transform = 'translate(-50%, -50%) translateY(0px)';
@@ -498,7 +511,7 @@ socket.on('lobby', ({ roomId: rid, players, settings: s }) => {
     const span = document.createElement('span');
     span.className = 'pill';
     span.style.borderColor = p.color;
-    span.textContent = p.name;
+    span.textContent = displayName(p.name, p.emoji);
     $players.appendChild(span);
   }
   const me = players.find((p) => p.id === myId);
@@ -603,7 +616,7 @@ socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds,
       dot.style.background = r.color;
       dot.style.borderColor = r.color;
       const text = document.createElement('div');
-      text.textContent = `${r.name}: ${r.points.length} pts • payoff ${r.payoff.toFixed(4)}`;
+      text.textContent = `${displayName(r.name, r.emoji)}: ${r.points.length} pts • payoff ${r.payoff.toFixed(4)}`;
       row.appendChild(dot);
       row.appendChild(text);
       $resultsLegend.appendChild(row);
@@ -615,7 +628,7 @@ socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds,
     const trTotals = document.createElement('tr');
     const tdTotals = document.createElement('td');
     tdTotals.colSpan = 5;
-    tdTotals.innerHTML = '<strong>Cumulative payoff:</strong> ' + totals.map(t => `${t.name}: ${t.totalPayoff.toFixed(4)}`).join(' | ');
+    tdTotals.innerHTML = '<strong>Cumulative payoff:</strong> ' + totals.map(t => `${displayName(t.name, t.emoji)}: ${t.totalPayoff.toFixed(4)}`).join(' | ');
     trTotals.appendChild(tdTotals);
     $resultsBody.appendChild(trTotals);
   }
@@ -632,7 +645,7 @@ socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds,
     for (const r of results) {
       const tr = document.createElement('tr');
       const nameTd = document.createElement('td');
-      nameTd.textContent = r.name;
+      nameTd.textContent = displayName(r.name, r.emoji);
       nameTd.style.color = r.color;
       const ptsTd = document.createElement('td');
       ptsTd.textContent = r.points.length > 0 ? formatPoints(r.points) : '(none)';
@@ -650,7 +663,7 @@ socket.on('results', ({ results, winner, settings: s, currentRound, totalRounds,
       $resultsBody.appendChild(tr);
     }
   }
-  $winnerLabel.textContent = winner ? `Winner: ${winner.name} (payoff: ${winner.payoff.toFixed(4)})` : 'No winner (no submissions)';
+  $winnerLabel.textContent = winner ? `Winner: ${displayName(winner.name, winner.emoji)} (payoff: ${winner.payoff.toFixed(4)})` : 'No winner (no submissions)';
   roundInfo = { current: currentRound || roundInfo.current, total: totalRounds || roundInfo.total };
   $roundLabel.textContent = `${roundInfo.current}/${roundInfo.total}`;
   if (roundInfo.current < roundInfo.total) {
